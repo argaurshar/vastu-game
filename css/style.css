@@ -180,7 +180,7 @@ header { padding: 1rem 0 1.2rem; }
 .dot.p { background: var(--accent-2); }
 
 /* ---------- Vastu Purusha Mandala ---------- */
-.mandala-card { margin-top: 1.2rem; }
+.mandala-card { margin-top: 1.2rem; max-width: 480px; }
 .mandala-card h3 { font-size: 1.05rem; color: var(--accent); margin-bottom: 0.4rem; }
 .mandala-sub { color: var(--text-dim); font-size: 0.82rem; line-height: 1.5; margin-bottom: 0.9rem; }
 .mandala-wrap { position: relative; aspect-ratio: 1; }
@@ -270,3 +270,185 @@ header { padding: 1rem 0 1.2rem; }
 .placeholder .big { font-size: 3rem; display: block; margin-bottom: 0.6rem; }
 
 footer { text-align: center; color: var(--text-dim); font-size: 0.78rem; padding: 2rem 0 1rem; line-height: 1.6; }
+
+/* ---------- Section navigation ---------- */
+.section-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0;
+  margin-bottom: 1rem;
+  background: linear-gradient(var(--bg) 70%, transparent);
+}
+.section-nav a {
+  text-decoration: none;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.95rem;
+  border: 1px solid var(--neutral);
+  border-radius: 999px;
+  background: var(--bg-card);
+  transition: all 0.15s;
+}
+.section-nav a:hover { color: var(--text); border-color: var(--accent); }
+html { scroll-behavior: smooth; }
+section { scroll-margin-top: 4rem; margin-bottom: 2.4rem; }
+section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
+.section-sub { color: var(--text-dim); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1rem; max-width: 850px; }
+.card-title { font-size: 1.05rem; color: var(--accent); margin-bottom: 0.7rem; }
+.map-hint { color: var(--text-dim); font-size: 0.78rem; text-align: center; margin-top: 0.7rem; }
+
+/* ---------- Clickable zones / zone profile ---------- */
+.zone { cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
+.zone:hover { transform: scale(1.04); border-color: var(--accent); }
+.zone.picked { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.zone-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
+.zone-hindi { color: var(--text-dim); font-size: 0.95rem; font-weight: 400; }
+.back-btn {
+  background: var(--bg-card-2);
+  border: 1px solid var(--neutral);
+  border-radius: 999px;
+  color: var(--text-dim);
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.back-btn:hover { border-color: var(--accent); color: var(--text); }
+.zone-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  margin: 0.5rem 0 1rem;
+}
+.zone-meta b { color: var(--text); }
+.zone-rooms { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.zone-room {
+  background: var(--bg-card-2);
+  border: 1px solid var(--neutral);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.zone-room:hover { border-color: var(--accent); }
+.verdict-row { align-items: flex-start; }
+.section-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.section-link:hover { text-decoration: underline; }
+
+/* ---------- 32-pada entrance ring ---------- */
+.pada-ring {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  grid-template-rows: repeat(9, 1fr);
+  gap: 4px;
+  aspect-ratio: 1;
+}
+.pada {
+  border-radius: 7px;
+  border: 1.5px solid var(--neutral);
+  background: var(--bg-card-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  overflow: hidden;
+}
+.pada:hover { transform: scale(1.07); border-color: var(--accent); z-index: 2; }
+.pada.picked { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 2; }
+.pada.best  { background: var(--green-soft);  border-color: var(--green); }
+.pada.good  { background: var(--orange-soft); border-color: var(--orange); }
+.pada.avoid { background: var(--red-soft);    border-color: var(--red); }
+.p-code { font-size: 0.62rem; font-weight: 800; }
+.p-deity { font-size: 0.5rem; color: var(--text-dim); text-align: center; line-height: 1.1; }
+.pada-core {
+  grid-row: 2 / 9;
+  grid-column: 2 / 9;
+  border: 1px dashed var(--neutral);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.pada-core-sub { font-size: 0.68rem; font-weight: 400; line-height: 1.4; }
+
+/* ---------- Site & plot cards ---------- */
+.site-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+.site-card h3 { font-size: 1rem; color: var(--accent); margin-bottom: 0.6rem; }
+.site-card ul { list-style: none; }
+.site-card li {
+  padding: 0.3rem 0 0.3rem 1.2rem;
+  position: relative;
+  font-size: 0.87rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.site-card li::before { content: "•"; position: absolute; left: 0.2rem; color: var(--accent); }
+
+/* ---------- Doshas accordion ---------- */
+.dosha-list { display: flex; flex-direction: column; gap: 0.55rem; }
+.dosha {
+  background: var(--bg-card);
+  border: 1px solid var(--neutral);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.dosha-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+.dosha-head:hover { background: rgba(245, 185, 66, 0.06); }
+.dosha-name { font-weight: 600; font-size: 0.95rem; }
+.dosha-arrow { margin-left: auto; color: var(--text-dim); transition: transform 0.2s; }
+.dosha.open .dosha-arrow { transform: rotate(180deg); }
+.sev {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.sev.high   { background: var(--red-soft);    color: var(--red);    border: 1px solid var(--red); }
+.sev.medium { background: var(--orange-soft); color: var(--orange); border: 1px solid var(--orange); }
+.dosha-body { display: none; padding: 0 1rem 1rem; }
+.dosha.open .dosha-body { display: block; }
+.dosha-why { color: var(--text-dim); font-size: 0.88rem; line-height: 1.55; margin-bottom: 0.6rem; }
+.dosha-body ul { list-style: none; }
+.dosha-body li {
+  padding: 0.25rem 0 0.25rem 1.2rem;
+  position: relative;
+  font-size: 0.87rem;
+  line-height: 1.5;
+}
+.dosha-body li::before { content: "✓"; position: absolute; left: 0.1rem; color: var(--green); }

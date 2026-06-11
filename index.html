@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vastu Room Guide — Best Position for Every Room</title>
-  <meta name="description" content="Quick Vastu Shastra reference for architects and interior designers: click or type any room name to instantly see the best (green), second-best (orange) and avoid (red) directions, with the traditional Vastu Purusha Mandala." />
+  <meta name="description" content="Vastu Shastra reference for architects and interior designers: room placement with green/orange/red directions, clickable zone profiles, the 32-pada entrance chart, site selection rules, and dosha remedies." />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -13,21 +13,30 @@
     <header>
       <div class="logo">
         <h1>🕉️ Vastu Room Guide</h1>
-        <p>Instant room-placement reference for architects &amp; interior designers</p>
+        <p>Room-placement &amp; planning reference for architects &amp; interior designers</p>
       </div>
     </header>
 
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input id="room-search" type="text" autocomplete="off"
-             placeholder="Type a room name… e.g. mandir, toilet, master bedroom, sunroom" />
-      <div class="suggestions" id="suggestions"></div>
-    </div>
+    <nav class="section-nav">
+      <a href="#rooms">Rooms</a>
+      <a href="#zones">Zones</a>
+      <a href="#entrance">Entrance</a>
+      <a href="#site">Site &amp; Plot</a>
+      <a href="#remedies">Remedies</a>
+    </nav>
 
-    <div class="chips" id="chips"></div>
+    <!-- ================= ROOMS ================= -->
+    <section id="rooms">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input id="room-search" type="text" autocomplete="off"
+               placeholder="Type a room name… e.g. mandir, toilet, master bedroom, sunroom" />
+        <div class="suggestions" id="suggestions"></div>
+      </div>
 
-    <div class="result-grid">
-      <div>
+      <div class="chips" id="chips"></div>
+
+      <div class="result-grid">
         <div class="card">
           <div class="compass-top">⬆ NORTH</div>
           <div class="house-map" id="house-map"></div>
@@ -37,51 +46,132 @@
             <span><i class="dot r"></i> Always avoid</span>
             <span><i class="dot n"></i> Neutral</span>
           </div>
+          <p class="map-hint">Tip: click any zone on the map for its full profile — what belongs there, colours, materials.</p>
         </div>
 
-        <!-- ====== Traditional Vastu Purusha Mandala ====== -->
-        <div class="card mandala-card">
-          <h3>Vastu Purusha Mandala</h3>
-          <p class="mandala-sub">
-            The traditional energy map: the Vastu Purusha lies with his head in the
-            North-East and feet in the South-West. Each zone is governed by a deity
-            and an element.
-          </p>
-          <div class="mandala-wrap">
-            <svg class="purusha" viewBox="0 0 300 300" aria-hidden="true">
-              <!-- stylised Vastu Purusha: head NE, limbs to NW/SE, feet SW -->
-              <circle cx="250" cy="50" r="18" />
-              <path d="M 238 64 Q 195 105 150 150 Q 105 195 72 228" />
-              <path d="M 222 82 Q 150 55 60 48" />
-              <path d="M 222 82 Q 248 165 252 245" />
-              <path d="M 150 150 Q 90 175 48 195" />
-              <path d="M 72 228 Q 58 242 48 256" />
-              <circle cx="150" cy="150" r="6" />
-            </svg>
-            <div class="mandala-grid" id="mandala-grid"></div>
-          </div>
-          <div class="legend">
-            <span><i class="dot g"></i> Auspicious zone</span>
-            <span><i class="dot o"></i> Use for specific rooms only</span>
-            <span><i class="dot p"></i> Brahmasthan — keep open</span>
+        <div class="card" id="room-info">
+          <div class="placeholder">
+            <span class="big">🏠</span>
+            Click a room chip or type a room name above.<br />
+            The house map shows
+            <b style="color:#22c55e">green</b> for the best position,
+            <b style="color:#f59e0b">orange</b> for second best and
+            <b style="color:#ef4444">red</b> for positions to always avoid.<br /><br />
+            Or click any <b>zone</b> on the map to see everything that belongs there.
           </div>
         </div>
       </div>
 
-      <div class="card" id="room-info">
+      <template id="placeholder-template">
         <div class="placeholder">
           <span class="big">🏠</span>
           Click a room chip or type a room name above.<br />
           The house map shows
           <b style="color:#22c55e">green</b> for the best position,
           <b style="color:#f59e0b">orange</b> for second best and
-          <b style="color:#ef4444">red</b> for positions to always avoid.
+          <b style="color:#ef4444">red</b> for positions to always avoid.<br /><br />
+          Or click any <b>zone</b> on the map to see everything that belongs there.
+        </div>
+      </template>
+    </section>
+
+    <!-- ================= ZONES / MANDALA ================= -->
+    <section id="zones">
+      <h2>The Nine Zones</h2>
+      <p class="section-sub">
+        Every placement rule flows from the Pancha Bhoota — the five elements seated in the
+        mandala: <b>Water</b> in the North-East, <b>Fire</b> in the South-East, <b>Earth</b> in the
+        South-West, <b>Air</b> in the North-West and <b>Space</b> at the centre. Match a room's
+        activity to its zone's element and the plan works; oppose it (fire in the water corner,
+        a void in the earth corner) and you create a dosha. Click any zone on the map above for
+        its rooms and interior palette.
+      </p>
+      <div class="card mandala-card">
+        <h3>Vastu Purusha Mandala</h3>
+        <p class="mandala-sub">
+          The traditional energy map: the Vastu Purusha lies with his head in the
+          North-East and feet in the South-West. Each zone is governed by a deity
+          and an element.
+        </p>
+        <div class="mandala-wrap">
+          <svg class="purusha" viewBox="0 0 300 300" aria-hidden="true">
+            <!-- stylised Vastu Purusha: head NE, limbs to NW/SE, feet SW -->
+            <circle cx="250" cy="50" r="18" />
+            <path d="M 238 64 Q 195 105 150 150 Q 105 195 72 228" />
+            <path d="M 222 82 Q 150 55 60 48" />
+            <path d="M 222 82 Q 248 165 252 245" />
+            <path d="M 150 150 Q 90 175 48 195" />
+            <path d="M 72 228 Q 58 242 48 256" />
+            <circle cx="150" cy="150" r="6" />
+          </svg>
+          <div class="mandala-grid" id="mandala-grid"></div>
+        </div>
+        <div class="legend">
+          <span><i class="dot g"></i> Auspicious zone</span>
+          <span><i class="dot o"></i> Use for specific rooms only</span>
+          <span><i class="dot p"></i> Brahmasthan — keep open</span>
         </div>
       </div>
-    </div>
+    </section>
+
+    <!-- ================= ENTRANCE / 32 PADAS ================= -->
+    <section id="entrance">
+      <h2>Main Entrance Planner — 32 Padas</h2>
+      <p class="section-sub">
+        The outer ring of the 9×9 Vastu Purusha Mandala divides the boundary into 32 padas,
+        eight per side, each ruled by a deity. Divide the length of each outer wall into eight
+        equal parts (measured clockwise, N and S walls west→east, E and W walls north→south on
+        this chart) and place the main door on an auspicious pada. Click any pada for its effect.
+      </p>
+      <div class="result-grid">
+        <div class="card">
+          <div class="compass-top">⬆ NORTH</div>
+          <div class="pada-ring" id="pada-ring"></div>
+          <div class="legend">
+            <span><i class="dot g"></i> Auspicious entrance</span>
+            <span><i class="dot o"></i> Acceptable</span>
+            <span><i class="dot r"></i> Avoid</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Pada Detail</h3>
+          <div id="pada-detail"></div>
+          <div class="tips" style="margin-top:1rem">
+            <h4>Quick Reference</h4>
+            <ul>
+              <li><b>North:</b> N3 Mukhya, N4 Bhallata, N5 Soma — wealth and recognition.</li>
+              <li><b>East:</b> E3 Jayanta, E4 Indra — success and authority.</li>
+              <li><b>West:</b> W3 Sugriva, W4 Pushpadanta — gains and fulfilment; W5 Varuna acceptable.</li>
+              <li><b>South:</b> only S4 Grihakshata is workable; all other South padas are avoided.</li>
+              <li>Corner padas (E1, S1, W1, N1) are always avoided.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SITE & PLOT ================= -->
+    <section id="site">
+      <h2>Site &amp; Plot Selection</h2>
+      <p class="section-sub">
+        The checks an architect makes before a single wall is drawn — shape, slope, roads,
+        surroundings and the distribution of open space.
+      </p>
+      <div class="site-grid" id="site-cards"></div>
+    </section>
+
+    <!-- ================= DOSHAS & REMEDIES ================= -->
+    <section id="remedies">
+      <h2>Common Doshas &amp; Remedies</h2>
+      <p class="section-sub">
+        The defects most often found in existing buildings, why they matter, and practical
+        mitigations when relocation is not possible. Click a defect to expand.
+      </p>
+      <div class="dosha-list" id="dosha-list"></div>
+    </section>
 
     <footer>
-      Based on traditional Vastu Shastra principles (Vastu Purusha Mandala).<br />
+      Based on traditional Vastu Shastra principles (Vastu Purusha Mandala, 32-pada entrance chart).<br />
       Reference only — consult a qualified Vastu expert for construction decisions.
     </footer>
   </div>

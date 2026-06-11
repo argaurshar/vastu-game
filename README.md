@@ -19,13 +19,26 @@ instantly shows:
 | 🔴 **Red** | Always avoid — never place the room here |
 | ⚪ Grey | Neutral zone |
 
-Below the map, the **traditional Vastu Purusha Mandala** shows each zone's
-ruling deity, domain, and general nature (auspicious / use for specific rooms
-only / Brahmasthan — keep open), with the Purusha figure lying head-to-NE,
-feet-to-SW.
-
 Each room also lists the reasoning behind the placement and practical notes
 (sleeping direction, stove orientation, drainage slope, etc.).
+
+## Sections
+
+- **Rooms** — search or click a room → green/orange/red direction map.
+- **Zone profiles (reverse lookup)** — click any zone on the map → every room
+  that belongs, is acceptable, or must never go there, plus the zone's interior
+  palette (colours, furniture weight, materials, décor).
+- **The Nine Zones** — the traditional Vastu Purusha Mandala with each zone's
+  ruling deity, domain, element and general nature, and the Pancha Bhoota
+  (five elements) logic behind every rule.
+- **Main Entrance Planner** — the classical 32-pada ring: divide each outer
+  wall into eight parts and click a pada to see its deity, verdict and effect
+  (N3 Mukhya, E3 Jayanta, W4 Pushpadanta, S4 Grihakshata…).
+- **Site & Plot Selection** — plot shapes (Gaumukhi/Shermukhi, cut corners),
+  slope and levels, roads and Veedhi Shoola, surroundings, open-space and
+  building-mass distribution.
+- **Doshas & Remedies** — 15 common defects (toilet in NE, kitchen in N, cut
+  SW corner…) with severity and practical mitigations for existing buildings.
 
 ## Rooms covered (21)
 

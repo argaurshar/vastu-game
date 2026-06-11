@@ -13,23 +13,77 @@
 
 const DIRECTIONS = {
   N:  { label: "North",      hindi: "Uttar",       deity: "Kubera",  domain: "Wealth & career",
-        element: "Water", rating: "good",        nature: "Auspicious — keep light and open" },
+        element: "Water", rating: "good",        nature: "Auspicious — keep light and open",
+        interiors: {
+          colors:    "Green, light blue, pista — tones of water and growth",
+          furniture: "Low, light furniture; leave floor area visible; no tall storage",
+          materials: "Water features, aquarium, glass; avoid heavy stone cladding",
+          decor:     "Mirror on the North wall invites opportunities; money plant; waterfall or river artwork"
+        } },
   NE: { label: "North-East", hindi: "Ishan",       deity: "Ishana",  domain: "Divinity & wisdom",
-        element: "Water", rating: "good",        nature: "Most auspicious — prayer, water, openness" },
+        element: "Water", rating: "good",        nature: "Most auspicious — prayer, water, openness",
+        interiors: {
+          colors:    "White, light yellow, very light blue — keep it the brightest corner",
+          furniture: "Minimal and lowest in the house; never tall wardrobes or lofts here",
+          materials: "Marble or light stone; a small water urn; no metal heaviness",
+          decor:     "Tulsi or sacred plants, diya or soft lamp, spiritual artwork; absolutely no clutter, dustbins or shoes"
+        } },
   E:  { label: "East",       hindi: "Purva",       deity: "Indra",   domain: "Health & power",
-        element: "Air",   rating: "good",        nature: "Auspicious — morning sun, entrances" },
+        element: "Air",   rating: "good",        nature: "Auspicious — morning sun, entrances",
+        interiors: {
+          colors:    "White, light green, cream — let morning light dominate",
+          furniture: "Light seating; keep windows unblocked by tall pieces",
+          materials: "Light wood, cane, cotton fabrics",
+          decor:     "Mirror on the East wall is fine; rising-sun or garden artwork; fresh flowers"
+        } },
   SE: { label: "South-East", hindi: "Agneya",      deity: "Agni",    domain: "Fire & energy",
-        element: "Fire",  rating: "conditional", nature: "Fire zone — ideal for kitchen only" },
+        element: "Fire",  rating: "conditional", nature: "Fire zone — ideal for kitchen only",
+        interiors: {
+          colors:    "Red, orange, coral and pink accents — feed the fire element",
+          furniture: "Kitchen mass and appliances; avoid beds and water-blue décor",
+          materials: "Granite, fire-resistant surfaces; electrical panels suit this corner",
+          decor:     "Bright warm lighting; no fountains, aquariums or blue artwork (water vs fire clash)"
+        } },
   S:  { label: "South",      hindi: "Dakshin",     deity: "Yama",    domain: "Discipline & rest",
-        element: "Earth", rating: "conditional", nature: "Heavy zone — bedrooms, storage" },
+        element: "Earth", rating: "conditional", nature: "Heavy zone — bedrooms, storage",
+        interiors: {
+          colors:    "Coral red, earthy maroon, warm brown",
+          furniture: "Medium-heavy pieces; bed with headboard on the South wall",
+          materials: "Solid wood, brick textures",
+          decor:     "Restful artwork; no mirror facing the bed; thick curtains welcome"
+        } },
   SW: { label: "South-West", hindi: "Nairutya",    deity: "Nirriti", domain: "Stability & strength",
-        element: "Earth", rating: "conditional", nature: "Heaviest zone — master bedroom; avoid openings" },
+        element: "Earth", rating: "conditional", nature: "Heaviest zone — master bedroom; avoid openings",
+        interiors: {
+          colors:    "Earthy browns, beige, terracotta, mustard — ground the Earth element",
+          furniture: "Tallest and heaviest furniture: wardrobes, safe (opening towards North), master bed",
+          materials: "Stone, solid timber; raised flooring is favourable",
+          decor:     "Family photographs strengthen bonds; avoid water features, mirrors and excessive glass"
+        } },
   W:  { label: "West",       hindi: "Paschim",     deity: "Varuna",  domain: "Fortune & nourishment",
-        element: "Water", rating: "conditional", nature: "Stable zone — dining, kids room, study" },
+        element: "Water", rating: "conditional", nature: "Stable zone — dining, kids room, study",
+        interiors: {
+          colors:    "Blue, grey, white — calm and satisfying tones",
+          furniture: "Dining table, study desks, moderate storage along the West wall",
+          materials: "Mixed wood and metal acceptable",
+          decor:     "Achievement boards and certificates for kids; balanced lighting"
+        } },
   NW: { label: "North-West", hindi: "Vayavya",     deity: "Vayu",    domain: "Movement & change",
-        element: "Air",   rating: "conditional", nature: "Movement zone — guests, toilets, garage" },
+        element: "Air",   rating: "conditional", nature: "Movement zone — guests, toilets, garage",
+        interiors: {
+          colors:    "White, cream, light grey — airy and mobile",
+          furniture: "Light, movable pieces; guest beds; nothing permanent or anchored",
+          materials: "Metal (silver tones) suits Vayu; wind chimes",
+          decor:     "Keep it ventilated; good corner for items you want to move (stock, items for sale)"
+        } },
   C:  { label: "Centre",     hindi: "Brahmasthan", deity: "Brahma",  domain: "Creation & space",
-        element: "Space", rating: "open",        nature: "Keep completely open — no construction" }
+        element: "Space", rating: "open",        nature: "Keep completely open — no construction",
+        interiors: {
+          colors:    "White or light yellow if treated at all",
+          furniture: "None — no furniture, pillars, beams or storage",
+          materials: "Open-to-sky courtyard or skylight is ideal",
+          decor:     "A rangoli or floor medallion is the only ornament it needs; keep spotless"
+        } }
 };
 
 /* Grid order used to render the 3x3 house map */
@@ -347,6 +401,260 @@ const ROOMS = [
       "No walls, pillars, toilets, stairs or heavy furniture in the centre.",
       "A skylight or open courtyard here energises the whole house.",
       "Keep it spotlessly clean."
+    ]
+  }
+];
+
+/* ============================================================
+   32-Pada Main Entrance Chart
+   The outer ring of the 9x9 Vastu Purusha Mandala holds 32
+   padas (steps), each ruled by a deity. The position of the
+   main door within its side decides the result. Verdicts use
+   the same language as rooms: best / good / avoid.
+   Sides are numbered clockwise: N1..N8 (NW->NE), E1..E8
+   (NE->SE), S1..S8 (SE->SW), W1..W8 (SW->NW).
+   ============================================================ */
+const PADAS = [
+  /* ---- North side, NW -> NE ---- */
+  { code: "N1", side: "N", deity: "Roga",        verdict: "avoid", effect: "Illness and instability in the family" },
+  { code: "N2", side: "N", deity: "Naga",        verdict: "avoid", effect: "Enemies, jealousy and mental unrest" },
+  { code: "N3", side: "N", deity: "Mukhya",      verdict: "best",  effect: "Prosperity, name and recognition" },
+  { code: "N4", side: "N", deity: "Bhallata",    verdict: "best",  effect: "Abundance and ever-growing wealth" },
+  { code: "N5", side: "N", deity: "Soma",        verdict: "best",  effect: "Wealth, opportunities and peace (Kubera's seat)" },
+  { code: "N6", side: "N", deity: "Bhujaga",     verdict: "avoid", effect: "Anxiety and hidden opposition" },
+  { code: "N7", side: "N", deity: "Aditi",       verdict: "avoid", effect: "Indiscipline and lack of direction" },
+  { code: "N8", side: "N", deity: "Diti",        verdict: "avoid", effect: "Financial drain and disputes" },
+  /* ---- East side, NE -> SE ---- */
+  { code: "E1", side: "E", deity: "Shikhi",      verdict: "avoid", effect: "Accidents and fear of fire (corner pada)" },
+  { code: "E2", side: "E", deity: "Parjanya",    verdict: "avoid", effect: "Unnecessary expenditure" },
+  { code: "E3", side: "E", deity: "Jayanta",     verdict: "best",  effect: "Victory, success and financial gains" },
+  { code: "E4", side: "E", deity: "Indra",       verdict: "best",  effect: "Power, authority and favour from government" },
+  { code: "E5", side: "E", deity: "Surya",       verdict: "avoid", effect: "Anger and friction with authorities" },
+  { code: "E6", side: "E", deity: "Satya",       verdict: "avoid", effect: "Broken promises and unreliability" },
+  { code: "E7", side: "E", deity: "Bhrisha",     verdict: "avoid", effect: "Cruel temperament and harshness" },
+  { code: "E8", side: "E", deity: "Antariksha",  verdict: "avoid", effect: "Theft and losses (corner-adjacent)" },
+  /* ---- South side, SE -> SW ---- */
+  { code: "S1", side: "S", deity: "Anila",       verdict: "avoid", effect: "Instability and restlessness (corner pada)" },
+  { code: "S2", side: "S", deity: "Pusha",       verdict: "avoid", effect: "Bondage and servitude" },
+  { code: "S3", side: "S", deity: "Vitatha",     verdict: "avoid", effect: "Falsehood and deceit around the family" },
+  { code: "S4", side: "S", deity: "Grihakshata", verdict: "good",  effect: "The one workable South entrance — material gains" },
+  { code: "S5", side: "S", deity: "Yama",        verdict: "avoid", effect: "Fear, debts and heaviness" },
+  { code: "S6", side: "S", deity: "Gandharva",   verdict: "avoid", effect: "Loss of wealth through pleasures" },
+  { code: "S7", side: "S", deity: "Bhringraja",  verdict: "avoid", effect: "Poverty and scarcity" },
+  { code: "S8", side: "S", deity: "Mriga",       verdict: "avoid", effect: "Weak health and timidity (corner-adjacent)" },
+  /* ---- West side, SW -> NW ---- */
+  { code: "W1", side: "W", deity: "Pitra",       verdict: "avoid", effect: "Debts and ancestral displeasure (corner pada)" },
+  { code: "W2", side: "W", deity: "Dauwarika",   verdict: "avoid", effect: "Harshness and quarrels" },
+  { code: "W3", side: "W", deity: "Sugriva",     verdict: "best",  effect: "Gains, recovery of dues and support" },
+  { code: "W4", side: "W", deity: "Pushpadanta", verdict: "best",  effect: "Fortune, fulfilment and happiness" },
+  { code: "W5", side: "W", deity: "Varuna",      verdict: "good",  effect: "General welfare and steady flow of resources" },
+  { code: "W6", side: "W", deity: "Asura",       verdict: "avoid", effect: "Fear and negative influences" },
+  { code: "W7", side: "W", deity: "Shosha",      verdict: "avoid", effect: "Drain of wealth and vitality" },
+  { code: "W8", side: "W", deity: "Papayakshma", verdict: "avoid", effect: "Chronic disease (corner-adjacent)" }
+];
+
+/* ============================================================
+   Site & Plot selection guide — the checks an architect makes
+   before a single wall is drawn.
+   ============================================================ */
+const SITE_GUIDE = [
+  {
+    icon: "⬛",
+    title: "Plot Shape",
+    points: [
+      "Square is ideal; rectangle is fine up to a 1:2 ratio.",
+      "Gaumukhi (narrow front, wider back) suits homes; Shermukhi (wide front, narrow back) suits only commercial use.",
+      "Extension of the North-East corner is auspicious; extension of any other corner is a defect.",
+      "A cut South-West corner is the most serious plot defect — avoid such plots if possible.",
+      "Avoid triangular, circular and irregular plots for residences."
+    ]
+  },
+  {
+    icon: "⛰️",
+    title: "Slope & Levels",
+    points: [
+      "Ground should slope down towards the North-East; a slope towards the South-West is inauspicious.",
+      "South-West plinth and floor levels highest; North-East lowest.",
+      "Basement, if any, only in the North or North-East portion.",
+      "Rainwater should drain out towards the North-East."
+    ]
+  },
+  {
+    icon: "🛣️",
+    title: "Roads & Veedhi Shoola",
+    points: [
+      "Roads on the North and East of the plot are the most favourable; North-East corner road junctions are excellent.",
+      "Veedhi Shoola (a road thrusting into the plot from a T-junction): from the North-East it is auspicious; from the South-West it is the most harmful.",
+      "Thrusts from the South or West bring instability — set the building back and screen with heavy planting.",
+      "Plots between two parallel roads (N–S or E–W through-plots) need careful entrance planning."
+    ]
+  },
+  {
+    icon: "🌊",
+    title: "Surroundings",
+    points: [
+      "Water bodies (river, lake, pond) to the North or North-East are highly auspicious.",
+      "Hills, tall buildings and heavy structures should be to the South or South-West — they shield, not block.",
+      "Avoid plots facing cremation grounds, hospitals or directly opposite temple entrances.",
+      "Large trees belong on the South and West boundaries, never shading the North-East."
+    ]
+  },
+  {
+    icon: "🏗️",
+    title: "Open Space & Building Mass",
+    points: [
+      "Leave more open space on the North and East sides of the building than on the South and West.",
+      "Build the heavier, taller mass towards the South-West; step heights down towards the North-East.",
+      "Compound walls thicker and higher on the South and West; lighter on the North and East.",
+      "Borewell or underground sump in the North-East of the open space; overhead tank over the South-West block."
+    ]
+  }
+];
+
+/* ============================================================
+   Common Vastu doshas (defects) and practical remedies.
+   Relocation is always the first remedy; the rest are
+   mitigations for existing construction.
+   ============================================================ */
+const DOSHAS = [
+  {
+    defect: "Toilet in the North-East",
+    severity: "high",
+    why: "Waste in the most sacred water zone — the classic worst defect, linked to health and financial decline.",
+    remedies: [
+      "Best: convert to a storeroom or bathing-only space and build the WC in the NW.",
+      "If it must stay: keep the door always closed, lid down, add a bright light and keep it spotless.",
+      "Use light colours and place a small sea-salt bowl, replaced weekly."
+    ]
+  },
+  {
+    defect: "Kitchen in the North-East or North",
+    severity: "high",
+    why: "Fire burning in the water zone creates an elemental clash — friction and drained finances.",
+    remedies: [
+      "Relocate the hob to the SE corner of the same kitchen and cook facing East.",
+      "Use yellow or cream walls, never red, in a NE kitchen.",
+      "Shift heavy storage to the kitchen's South and West walls."
+    ]
+  },
+  {
+    defect: "Kitchen in the South-West",
+    severity: "medium",
+    why: "Fire destabilises the Earth corner that should anchor the family.",
+    remedies: [
+      "Place the hob in the SE corner of the room.",
+      "Add earthy tones and heavy storage to restore the zone's weight."
+    ]
+  },
+  {
+    defect: "Master bedroom in the South-East",
+    severity: "medium",
+    why: "Sleeping in the fire zone causes short tempers, arguments and restless sleep.",
+    remedies: [
+      "Move the couple to the SW room and give the SE room another use.",
+      "If not possible: bed in the SW corner of the room, head towards South; avoid red décor; no mirrors facing the bed."
+    ]
+  },
+  {
+    defect: "Main entrance in the South-West",
+    severity: "high",
+    why: "Openings in the heaviest zone leak the home's stability (see padas W1, S8).",
+    remedies: [
+      "If a second entrance on the N or E exists, make it the daily-use door.",
+      "Keep the SW door solid (no glass), heavier than other doors, and very well lit.",
+      "A threshold (umbar) and a panelled door reduce the defect."
+    ]
+  },
+  {
+    defect: "Staircase in the centre (Brahmasthan)",
+    severity: "high",
+    why: "Heavy load on the home's lungs — pressure on health and harmony of the whole family.",
+    remedies: [
+      "Keep the area under and around the stairs completely free of storage.",
+      "Maximise light here — a skylight above the stairwell helps.",
+      "Never put a toilet, kitchen or pooja under these stairs."
+    ]
+  },
+  {
+    defect: "Staircase in the North-East",
+    severity: "high",
+    why: "Mass in the corner that must remain the lightest and most open.",
+    remedies: [
+      "Paint it in light colours and keep the space beneath open and bright.",
+      "Strengthen the SW with weight (tall storage) to restore balance."
+    ]
+  },
+  {
+    defect: "Cut or missing South-West corner",
+    severity: "high",
+    why: "The house loses its anchor — savings and stability suffer.",
+    remedies: [
+      "Place the heaviest furniture in the deepest available SW point.",
+      "Raise floor level or add a heavy planter/stone feature at the cut.",
+      "Keep SW windows small and usually closed."
+    ]
+  },
+  {
+    defect: "Underground water tank / borewell in the South-West",
+    severity: "high",
+    why: "A void below the anchor zone destabilises the entire dwelling.",
+    remedies: [
+      "Decommission if feasible and dig a new sump in the NE.",
+      "Otherwise keep it sealed, covered with a heavy slab, and add weight above it."
+    ]
+  },
+  {
+    defect: "Septic tank in the North-East",
+    severity: "high",
+    why: "Contamination of the prosperity zone — the strongest drain on health and wealth.",
+    remedies: [
+      "Relocate to the NW if at all possible — this defect responds poorly to soft remedies.",
+      "Until then: keep the NE surface spotless, well lit and free of any other load."
+    ]
+  },
+  {
+    defect: "Bedroom directly above the kitchen",
+    severity: "medium",
+    why: "Sleeping over fire brings irritability and disturbed sleep.",
+    remedies: [
+      "Shift the bed so it does not sit directly above the hob.",
+      "Use cooling colours (light blue, white) in the bedroom."
+    ]
+  },
+  {
+    defect: "Mirror facing the bed",
+    severity: "medium",
+    why: "Reflection of the sleeping body is believed to disturb rest and relationships.",
+    remedies: [
+      "Move the mirror to the North or East wall, or inside a wardrobe.",
+      "Cover it with a curtain at night if it cannot move."
+    ]
+  },
+  {
+    defect: "Heavy storage or pillar in the Brahmasthan",
+    severity: "medium",
+    why: "The centre must breathe; blocking it congests the whole house's energy.",
+    remedies: [
+      "Clear the central ninth of the floor plan of furniture and clutter.",
+      "If a structural column exists, keep its surroundings open and light-coloured."
+    ]
+  },
+  {
+    defect: "Children sleeping in the South-West room",
+    severity: "medium",
+    why: "SW confers authority — children here tend to overrule parents and grow stubborn.",
+    remedies: [
+      "Swap rooms: parents to SW, children to the West or NW room.",
+      "If unavoidable, place the child's bed in the room's NW and study desk facing East."
+    ]
+  },
+  {
+    defect: "Stove and sink adjacent on one counter",
+    severity: "medium",
+    why: "Fire and water side by side create elemental friction — small daily conflicts.",
+    remedies: [
+      "Separate them by at least 2–3 ft or place a wooden chopping station between.",
+      "Ideally: hob in the SE of the kitchen, sink towards the NE."
     ]
   }
 ];
