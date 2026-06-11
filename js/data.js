@@ -12,15 +12,24 @@
    ============================================================ */
 
 const DIRECTIONS = {
-  N:  { label: "North",      hindi: "Uttar",   deity: "Kubera (Wealth)",        element: "Water" },
-  NE: { label: "North-East", hindi: "Ishan",   deity: "Ishana (Divinity)",      element: "Water" },
-  E:  { label: "East",       hindi: "Purva",   deity: "Indra (Power)",          element: "Air"   },
-  SE: { label: "South-East", hindi: "Agneya",  deity: "Agni (Fire)",            element: "Fire"  },
-  S:  { label: "South",      hindi: "Dakshin", deity: "Yama (Discipline)",      element: "Earth" },
-  SW: { label: "South-West", hindi: "Nairutya",deity: "Nirriti (Stability)",    element: "Earth" },
-  W:  { label: "West",       hindi: "Paschim", deity: "Varuna (Fortune)",       element: "Water" },
-  NW: { label: "North-West", hindi: "Vayavya", deity: "Vayu (Movement)",        element: "Air"   },
-  C:  { label: "Centre",     hindi: "Brahmasthan", deity: "Brahma (Creation)",  element: "Space" }
+  N:  { label: "North",      hindi: "Uttar",       deity: "Kubera",  domain: "Wealth & career",
+        element: "Water", rating: "good",        nature: "Auspicious — keep light and open" },
+  NE: { label: "North-East", hindi: "Ishan",       deity: "Ishana",  domain: "Divinity & wisdom",
+        element: "Water", rating: "good",        nature: "Most auspicious — prayer, water, openness" },
+  E:  { label: "East",       hindi: "Purva",       deity: "Indra",   domain: "Health & power",
+        element: "Air",   rating: "good",        nature: "Auspicious — morning sun, entrances" },
+  SE: { label: "South-East", hindi: "Agneya",      deity: "Agni",    domain: "Fire & energy",
+        element: "Fire",  rating: "conditional", nature: "Fire zone — ideal for kitchen only" },
+  S:  { label: "South",      hindi: "Dakshin",     deity: "Yama",    domain: "Discipline & rest",
+        element: "Earth", rating: "conditional", nature: "Heavy zone — bedrooms, storage" },
+  SW: { label: "South-West", hindi: "Nairutya",    deity: "Nirriti", domain: "Stability & strength",
+        element: "Earth", rating: "conditional", nature: "Heaviest zone — master bedroom; avoid openings" },
+  W:  { label: "West",       hindi: "Paschim",     deity: "Varuna",  domain: "Fortune & nourishment",
+        element: "Water", rating: "conditional", nature: "Stable zone — dining, kids room, study" },
+  NW: { label: "North-West", hindi: "Vayavya",     deity: "Vayu",    domain: "Movement & change",
+        element: "Air",   rating: "conditional", nature: "Movement zone — guests, toilets, garage" },
+  C:  { label: "Centre",     hindi: "Brahmasthan", deity: "Brahma",  domain: "Creation & space",
+        element: "Space", rating: "open",        nature: "Keep completely open — no construction" }
 };
 
 /* Grid order used to render the 3x3 house map */
@@ -340,24 +349,4 @@ const ROOMS = [
       "Keep it spotlessly clean."
     ]
   }
-];
-
-/* ---- Quiz question pool: built from the same data so it never drifts ---- */
-const LEVELS = [
-  { min: 0,    title: "Vastu Newbie",      icon: "🌱" },
-  { min: 100,  title: "Direction Seeker",  icon: "🧭" },
-  { min: 250,  title: "Energy Apprentice", icon: "✨" },
-  { min: 500,  title: "Zone Master",       icon: "🏠" },
-  { min: 900,  title: "Vastu Pandit",      icon: "📜" },
-  { min: 1500, title: "Vastu Guru",        icon: "🕉️" }
-];
-
-const BADGES = [
-  { id: "first-room",   icon: "🔍", name: "First Steps",     desc: "Explore your first room" },
-  { id: "five-rooms",   icon: "🗺️", name: "House Hunter",    desc: "Explore 5 different rooms" },
-  { id: "all-rooms",    icon: "🏆", name: "Master Architect", desc: "Explore every room" },
-  { id: "first-quiz",   icon: "🎯", name: "Quiz Taker",      desc: "Answer your first quiz question" },
-  { id: "streak-3",     icon: "🔥", name: "On Fire",         desc: "Get a 3-answer streak in the quiz" },
-  { id: "streak-7",     icon: "⚡", name: "Unstoppable",     desc: "Get a 7-answer streak in the quiz" },
-  { id: "score-500",    icon: "💎", name: "Half a Grand",    desc: "Reach 500 total points" }
 ];

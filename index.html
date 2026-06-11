@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vastu Quest — Gamified Vastu Shastra Room Guide</title>
-  <meta name="description" content="A gamified Vastu Shastra guide: click or type any room name to instantly see the best (green), second-best (orange) and avoid (red) directions in your home." />
+  <title>Vastu Room Guide — Best Position for Every Room</title>
+  <meta name="description" content="Quick Vastu Shastra reference for architects and interior designers: click or type any room name to instantly see the best (green), second-best (orange) and avoid (red) directions, with the traditional Vastu Purusha Mandala." />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -12,42 +12,25 @@
 
     <header>
       <div class="logo">
-        <h1>🕉️ Vastu Quest</h1>
-        <p>Find the perfect place for every room in your home</p>
-      </div>
-      <div class="hud">
-        <div class="hud-pill">⭐ <b id="score-val">0</b> <span class="label">points</span></div>
-        <div class="hud-pill">🏠 <b id="explored-val">0/0</b> <span class="label">rooms</span></div>
-        <div class="hud-pill level-wrap">
-          <div style="width:100%">
-            <div id="level-name">🌱 Vastu Newbie</div>
-            <div class="level-bar"><div class="level-bar-fill" id="level-fill"></div></div>
-          </div>
-        </div>
-        <button class="hud-pill" id="reset-btn" title="Reset progress" style="cursor:pointer">↺</button>
+        <h1>🕉️ Vastu Room Guide</h1>
+        <p>Instant room-placement reference for architects &amp; interior designers</p>
       </div>
     </header>
 
-    <div class="tabs">
-      <div class="tab active" data-mode="explore">🔍 Explore Rooms</div>
-      <div class="tab" data-mode="quiz">🎯 Quiz Challenge</div>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input id="room-search" type="text" autocomplete="off"
+             placeholder="Type a room name… e.g. mandir, toilet, master bedroom, sunroom" />
+      <div class="suggestions" id="suggestions"></div>
     </div>
 
-    <!-- ================= EXPLORE MODE ================= -->
-    <section id="explore-panel">
-      <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input id="room-search" type="text" autocomplete="off"
-               placeholder="Type a room name… e.g. mandir, toilet, master bedroom, sunroom" />
-        <div class="suggestions" id="suggestions"></div>
-      </div>
+    <div class="chips" id="chips"></div>
 
-      <div class="chips" id="chips"></div>
-
-      <div class="result-grid">
+    <div class="result-grid">
+      <div>
         <div class="card">
           <div class="compass-top">⬆ NORTH</div>
-          <div id="explore-map-slot"><div class="house-map" id="house-map"></div></div>
+          <div class="house-map" id="house-map"></div>
           <div class="legend">
             <span><i class="dot g"></i> Best position</span>
             <span><i class="dot o"></i> Second best</span>
@@ -56,55 +39,52 @@
           </div>
         </div>
 
-        <div class="card" id="room-info">
-          <div class="placeholder">
-            <span class="big">🏠</span>
-            Click a room chip or type a room name above.<br />
-            The house map will glow
-            <b style="color:#22c55e">green</b> for the best zone,
-            <b style="color:#f59e0b">orange</b> for second best and
-            <b style="color:#ef4444">red</b> for zones to always avoid.
+        <!-- ====== Traditional Vastu Purusha Mandala ====== -->
+        <div class="card mandala-card">
+          <h3>Vastu Purusha Mandala</h3>
+          <p class="mandala-sub">
+            The traditional energy map: the Vastu Purusha lies with his head in the
+            North-East and feet in the South-West. Each zone is governed by a deity
+            and an element.
+          </p>
+          <div class="mandala-wrap">
+            <svg class="purusha" viewBox="0 0 300 300" aria-hidden="true">
+              <!-- stylised Vastu Purusha: head NE, limbs to NW/SE, feet SW -->
+              <circle cx="250" cy="50" r="18" />
+              <path d="M 238 64 Q 195 105 150 150 Q 105 195 72 228" />
+              <path d="M 222 82 Q 150 55 60 48" />
+              <path d="M 222 82 Q 248 165 252 245" />
+              <path d="M 150 150 Q 90 175 48 195" />
+              <path d="M 72 228 Q 58 242 48 256" />
+              <circle cx="150" cy="150" r="6" />
+            </svg>
+            <div class="mandala-grid" id="mandala-grid"></div>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ================= QUIZ MODE ================= -->
-    <section id="quiz-panel" style="display:none">
-      <div class="result-grid">
-        <div class="card">
-          <div class="compass-top">⬆ NORTH</div>
-          <!-- the shared #house-map node is moved here by setMode() in quiz mode -->
-          <div id="quiz-map-slot"></div>
           <div class="legend">
-            <span><i class="dot g"></i> +20 pts</span>
-            <span><i class="dot o"></i> +10 pts</span>
-            <span><i class="dot r"></i> −5 pts</span>
+            <span><i class="dot g"></i> Auspicious zone</span>
+            <span><i class="dot o"></i> Use for specific rooms only</span>
+            <span><i class="dot p"></i> Brahmasthan — keep open</span>
           </div>
         </div>
-        <div class="card">
-          <div class="quiz-stats" id="quiz-stats"></div>
-          <div class="quiz-q" id="quiz-question"></div>
-          <div class="quiz-sub" id="quiz-sub"></div>
-          <div class="quiz-feedback" id="quiz-feedback"></div>
-          <button class="btn" id="quiz-next" disabled>Next Question ➜</button>
+      </div>
+
+      <div class="card" id="room-info">
+        <div class="placeholder">
+          <span class="big">🏠</span>
+          Click a room chip or type a room name above.<br />
+          The house map shows
+          <b style="color:#22c55e">green</b> for the best position,
+          <b style="color:#f59e0b">orange</b> for second best and
+          <b style="color:#ef4444">red</b> for positions to always avoid.
         </div>
       </div>
-    </section>
-
-    <!-- ================= BADGES ================= -->
-    <section class="card badges-card">
-      <h3>🏅 Your Badges</h3>
-      <div class="badges" id="badges"></div>
-    </section>
+    </div>
 
     <footer>
-      Vastu Quest · Based on traditional Vastu Shastra principles (Vastu Purusha Mandala).<br />
-      For education and fun — consult a qualified Vastu expert for construction decisions.
+      Based on traditional Vastu Shastra principles (Vastu Purusha Mandala).<br />
+      Reference only — consult a qualified Vastu expert for construction decisions.
     </footer>
   </div>
-
-  <div id="toast-wrap"></div>
 
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>

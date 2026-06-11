@@ -1,13 +1,16 @@
-# 🕉️ Vastu Quest — Gamified Vastu Shastra Room Guide
+# 🕉️ Vastu Room Guide
 
-A fun, interactive single-page game that teaches the ideal placement of every room
-in a home according to **Vastu Shastra** (the Vastu Purusha Mandala).
+A quick-reference web app for **architects and interior designers**: click or
+type any room name and instantly see its ideal placement in a home according
+to **Vastu Shastra** (the Vastu Purusha Mandala).
+
+**Live:** https://argaurshar.github.io/vastu-game/
 
 ## How it works
 
 **Click any room chip or type a room name** (washroom, bedroom, master bedroom,
 sunroom, kids room, mandir, toilet, kitchen, and many more) and the 3×3 house map
-instantly lights up:
+instantly shows:
 
 | Colour | Meaning |
 |--------|---------|
@@ -16,9 +19,13 @@ instantly lights up:
 | 🔴 **Red** | Always avoid — never place the room here |
 | ⚪ Grey | Neutral zone |
 
-The map covers all Vastu zones: **North, North-East, East, South-East, South,
-South-West, West, North-West** and the sacred **Brahmasthan (centre)** — each
-labelled with its Sanskrit name, ruling deity and element.
+Below the map, the **traditional Vastu Purusha Mandala** shows each zone's
+ruling deity, domain, and general nature (auspicious / use for specific rooms
+only / Brahmasthan — keep open), with the Purusha figure lying head-to-NE,
+feet-to-SW.
+
+Each room also lists the reasoning behind the placement and practical notes
+(sleeping direction, stove orientation, drainage slope, etc.).
 
 ## Rooms covered (21)
 
@@ -27,19 +34,10 @@ Kitchen · Toilet · Washroom / Bathroom · Sunroom · Living Room · Dining Roo
 Study Room · Staircase · Store Room · Main Entrance · Garage · Balcony ·
 Underground Water Tank · Overhead Water Tank · Septic Tank · Brahmasthan
 
-Typing also understands aliases — e.g. *pooja*, *puja room*, *temple* all find
-the Mandir; *wc* finds the Toilet.
+Typing understands aliases — e.g. *pooja*, *puja room*, *temple* all find the
+Mandir; *wc* finds the Toilet.
 
-## 🎮 Gamification
-
-- **⭐ Points** — +10 for every new room you explore
-- **🎯 Quiz Challenge** — tap the zone you think is best: 🥇 +20, 🥈 +10, 🚫 −5
-- **🔥 Streaks** — chain correct answers for streak badges
-- **📈 Levels** — climb from *Vastu Newbie* 🌱 to *Vastu Guru* 🕉️
-- **🏅 7 Badges** — First Steps, House Hunter, Master Architect, On Fire, and more
-- Progress is saved automatically in your browser (localStorage)
-
-## Run it
+## Run it locally
 
 No build step, no dependencies — just open the page:
 
@@ -55,11 +53,11 @@ python3 -m http.server 8000
 ## Project structure
 
 ```
-index.html      — page layout (explore mode, quiz mode, badges)
-css/style.css   — game styling, colours, animations
-js/data.js      — Vastu data: 21 rooms, 9 zones, levels, badges
-js/app.js       — game logic: search, house map, quiz, scoring
+index.html      — page layout (search, room chips, map, mandala, info panel)
+css/style.css   — styling
+js/data.js      — Vastu data: 21 rooms, 9 zones with deities and ratings
+js/app.js       — lookup logic: search, autocomplete, map rendering
 ```
 
-> ⚠️ For education and fun. Consult a qualified Vastu expert for real
+> ⚠️ For reference only. Consult a qualified Vastu expert for real
 > construction or renovation decisions.

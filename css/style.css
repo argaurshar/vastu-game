@@ -1,4 +1,4 @@
-/* ============ Vastu Quest — Game Styles ============ */
+/* ============ Vastu Room Guide — Styles ============ */
 :root {
   --bg: #0f1220;
   --bg-card: #1a1f35;
@@ -33,15 +33,8 @@ body {
 
 .container { max-width: 1100px; margin: 0 auto; padding: 1.2rem; }
 
-/* ---------- Header / HUD ---------- */
-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  padding: 1rem 0 1.4rem;
-}
+/* ---------- Header ---------- */
+header { padding: 1rem 0 1.2rem; }
 .logo h1 {
   font-size: 1.7rem;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
@@ -50,65 +43,7 @@ header {
   color: transparent;
   letter-spacing: 0.5px;
 }
-.logo p { color: var(--text-dim); font-size: 0.85rem; margin-top: 2px; }
-
-.hud {
-  display: flex;
-  gap: 0.7rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.hud-pill {
-  background: var(--bg-card);
-  border: 1px solid var(--neutral);
-  border-radius: 999px;
-  padding: 0.45rem 0.95rem;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-weight: 600;
-  font-size: 0.92rem;
-  box-shadow: var(--shadow);
-}
-.hud-pill .label { color: var(--text-dim); font-weight: 400; font-size: 0.78rem; }
-
-.level-wrap { min-width: 180px; }
-.level-bar {
-  height: 7px;
-  background: var(--neutral);
-  border-radius: 99px;
-  overflow: hidden;
-  margin-top: 4px;
-}
-.level-bar-fill {
-  height: 100%;
-  width: 0%;
-  border-radius: 99px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  transition: width 0.6s ease;
-}
-
-/* ---------- Mode tabs ---------- */
-.tabs { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; }
-.tab {
-  flex: 1;
-  text-align: center;
-  padding: 0.75rem;
-  border-radius: var(--radius);
-  background: var(--bg-card);
-  border: 1px solid var(--neutral);
-  color: var(--text-dim);
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.tab:hover { border-color: var(--accent); color: var(--text); }
-.tab.active {
-  background: linear-gradient(135deg, rgba(245, 185, 66, 0.2), rgba(142, 108, 245, 0.2));
-  border-color: var(--accent);
-  color: var(--text);
-}
+.logo p { color: var(--text-dim); font-size: 0.88rem; margin-top: 2px; }
 
 /* ---------- Search ---------- */
 .search-wrap { position: relative; margin-bottom: 1rem; }
@@ -127,8 +62,7 @@ header {
 .search-icon {
   position: absolute;
   left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 1rem;
   font-size: 1.1rem;
   pointer-events: none;
 }
@@ -171,9 +105,7 @@ header {
   transition: all 0.15s;
   user-select: none;
 }
-.chip:hover { transform: translateY(-2px); border-color: var(--accent); }
-.chip.explored { border-color: var(--green); }
-.chip.explored::after { content: "✓"; color: var(--green); font-weight: 800; margin-left: 2px; }
+.chip:hover { border-color: var(--accent); }
 .chip.selected {
   background: linear-gradient(135deg, rgba(245, 185, 66, 0.25), rgba(142, 108, 245, 0.25));
   border-color: var(--accent);
@@ -182,7 +114,7 @@ header {
 /* ---------- Result layout ---------- */
 .result-grid {
   display: grid;
-  grid-template-columns: minmax(300px, 460px) 1fr;
+  grid-template-columns: minmax(300px, 440px) 1fr;
   gap: 1.2rem;
   align-items: start;
 }
@@ -221,38 +153,21 @@ header {
   gap: 2px;
   padding: 4px;
   text-align: center;
-  cursor: default;
-  transition: transform 0.18s, box-shadow 0.18s;
-  position: relative;
 }
 .zone .dir { font-weight: 800; font-size: 1.05rem; }
 .zone .hindi { font-size: 0.66rem; color: var(--text-dim); }
 .zone .verdict { font-size: 0.7rem; font-weight: 700; margin-top: 2px; }
-.zone .medal { font-size: 1.15rem; line-height: 1; }
 
 .zone.best {
   background: var(--green-soft);
   border-color: var(--green);
-  box-shadow: 0 0 18px rgba(34, 197, 94, 0.35);
-  animation: pulse-green 1.6s ease-in-out infinite;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.3);
 }
 .zone.best .verdict { color: var(--green); }
 .zone.good { background: var(--orange-soft); border-color: var(--orange); }
 .zone.good .verdict { color: var(--orange); }
 .zone.avoid { background: var(--red-soft); border-color: var(--red); }
 .zone.avoid .verdict { color: var(--red); }
-.zone.neutral .verdict { color: var(--text-dim); }
-
-@keyframes pulse-green {
-  0%, 100% { box-shadow: 0 0 10px rgba(34, 197, 94, 0.25); }
-  50%      { box-shadow: 0 0 24px rgba(34, 197, 94, 0.55); }
-}
-
-/* Quiz mode: zones become clickable */
-.house-map.quiz .zone { cursor: pointer; }
-.house-map.quiz .zone:hover { transform: scale(1.05); border-color: var(--accent); }
-.house-map.quiz .zone.locked { cursor: default; }
-.house-map.quiz .zone.locked:hover { transform: none; }
 
 /* ---------- Legend ---------- */
 .legend { display: flex; gap: 1rem; justify-content: center; margin-top: 0.9rem; flex-wrap: wrap; }
@@ -262,6 +177,52 @@ header {
 .dot.o { background: var(--orange); }
 .dot.r { background: var(--red); }
 .dot.n { background: var(--neutral); }
+.dot.p { background: var(--accent-2); }
+
+/* ---------- Vastu Purusha Mandala ---------- */
+.mandala-card { margin-top: 1.2rem; }
+.mandala-card h3 { font-size: 1.05rem; color: var(--accent); margin-bottom: 0.4rem; }
+.mandala-sub { color: var(--text-dim); font-size: 0.82rem; line-height: 1.5; margin-bottom: 0.9rem; }
+.mandala-wrap { position: relative; aspect-ratio: 1; }
+.purusha {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 1;
+}
+.purusha circle:last-of-type { fill: var(--accent); stroke: none; }
+.mandala-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  height: 100%;
+}
+.m-zone {
+  border-radius: 10px;
+  background: rgba(34, 40, 69, 0.55);
+  border: 1px solid var(--neutral);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px;
+  text-align: center;
+}
+.m-zone.good { border-color: rgba(34, 197, 94, 0.55); }
+.m-zone.conditional { border-color: rgba(245, 158, 11, 0.55); }
+.m-zone.open { border-color: rgba(142, 108, 245, 0.7); }
+.m-deity { font-weight: 700; font-size: 0.85rem; }
+.m-domain { font-size: 0.68rem; color: var(--accent); }
+.m-nature { font-size: 0.62rem; color: var(--text-dim); line-height: 1.35; }
 
 /* ---------- Room info panel ---------- */
 .room-title { display: flex; align-items: center; gap: 0.6rem; font-size: 1.35rem; margin-bottom: 0.8rem; }
@@ -285,20 +246,19 @@ header {
   border-radius: 10px;
   padding: 0.8rem 0.95rem;
   font-size: 0.92rem;
-  color: var(--text);
   margin-bottom: 1rem;
   line-height: 1.5;
 }
 .tips h4 { margin-bottom: 0.45rem; color: var(--accent); font-size: 0.95rem; }
 .tips ul { list-style: none; }
 .tips li {
-  padding: 0.3rem 0 0.3rem 1.4rem;
+  padding: 0.3rem 0 0.3rem 1.2rem;
   position: relative;
   font-size: 0.9rem;
   color: var(--text-dim);
   line-height: 1.45;
 }
-.tips li::before { content: "🪔"; position: absolute; left: 0; font-size: 0.8rem; }
+.tips li::before { content: "•"; position: absolute; left: 0.2rem; color: var(--accent); }
 
 .placeholder {
   text-align: center;
@@ -308,76 +268,5 @@ header {
   line-height: 1.7;
 }
 .placeholder .big { font-size: 3rem; display: block; margin-bottom: 0.6rem; }
-
-/* ---------- Quiz panel ---------- */
-.quiz-q { font-size: 1.25rem; margin-bottom: 0.4rem; line-height: 1.5; }
-.quiz-sub { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1rem; }
-.quiz-feedback {
-  margin-top: 1rem;
-  padding: 0.9rem 1rem;
-  border-radius: 10px;
-  font-weight: 600;
-  display: none;
-  line-height: 1.5;
-}
-.quiz-feedback.show { display: block; }
-.quiz-feedback.correct { background: var(--green-soft); border-left: 4px solid var(--green); }
-.quiz-feedback.partial { background: var(--orange-soft); border-left: 4px solid var(--orange); }
-.quiz-feedback.wrong { background: var(--red-soft); border-left: 4px solid var(--red); }
-.quiz-stats { display: flex; gap: 0.7rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.quiz-stats .hud-pill { font-size: 0.85rem; padding: 0.35rem 0.8rem; }
-
-.btn {
-  display: inline-block;
-  margin-top: 1rem;
-  padding: 0.7rem 1.5rem;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  color: #16182b;
-  font-weight: 800;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: transform 0.15s, opacity 0.15s;
-}
-.btn:hover { transform: translateY(-2px); }
-.btn:disabled { opacity: 0.4; cursor: default; transform: none; }
-
-/* ---------- Badges ---------- */
-.badges-card { margin-top: 1.2rem; }
-.badges-card h3 { margin-bottom: 0.8rem; font-size: 1.05rem; }
-.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.7rem; }
-.badge {
-  background: var(--bg-card-2);
-  border: 1px solid var(--neutral);
-  border-radius: 12px;
-  padding: 0.75rem;
-  text-align: center;
-  opacity: 0.35;
-  filter: grayscale(1);
-  transition: all 0.3s;
-}
-.badge.earned { opacity: 1; filter: none; border-color: var(--accent); box-shadow: 0 0 14px rgba(245, 185, 66, 0.25); }
-.badge .icon { font-size: 1.7rem; }
-.badge .name { font-weight: 700; font-size: 0.85rem; margin-top: 0.25rem; }
-.badge .desc { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.15rem; }
-
-/* ---------- Toast ---------- */
-#toast-wrap { position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: 99; display: flex; flex-direction: column; gap: 0.5rem; }
-.toast {
-  background: var(--bg-card-2);
-  border: 1px solid var(--accent);
-  border-radius: 12px;
-  padding: 0.8rem 1.1rem;
-  font-weight: 700;
-  box-shadow: var(--shadow);
-  animation: toast-in 0.3s ease, toast-out 0.4s ease 2.8s forwards;
-}
-@keyframes toast-in  { from { transform: translateX(120%); } to { transform: translateX(0); } }
-@keyframes toast-out { to { transform: translateX(120%); opacity: 0; } }
-
-/* ---------- Score pop animation ---------- */
-@keyframes score-pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); color: var(--accent); } 100% { transform: scale(1); } }
-.pop { animation: score-pop 0.5s ease; }
 
 footer { text-align: center; color: var(--text-dim); font-size: 0.78rem; padding: 2rem 0 1rem; line-height: 1.6; }
