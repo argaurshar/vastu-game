@@ -452,3 +452,20 @@ section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
   line-height: 1.5;
 }
 .dosha-body li::before { content: "✓"; position: absolute; left: 0.1rem; color: var(--green); }
+
+/* ---------- 1 / 2A / 2B priority tags ---------- */
+.tag {
+  display: inline-block;
+  min-width: 1.45rem;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  margin-right: 0.3rem;
+  color: #16182b;
+}
+.verdict-row.best .tag { background: var(--green); }
+.verdict-row.good .tag { background: var(--orange); }
+/* the BEST/2A/2B badge inside each map zone */
+.zone.best .verdict, .zone.good .verdict { letter-spacing: 0.3px; }

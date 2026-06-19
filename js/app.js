@@ -7,15 +7,23 @@
 
 const $ = (sel) => document.querySelector(sel);
 
-function zoneStatus(room, dir) {
-  if (room.best.includes(dir)) return "best";
-  if (room.good.includes(dir)) return "good";
-  if (room.avoid.includes(dir)) return "avoid";
-  return "neutral";
+/* Returns the CSS class + the badge label for a zone, given a room.
+   best   -> green  "BEST"
+   second -> orange "2A", "2B", "2C" … (in priority order)
+   avoid  -> red    "AVOID"                                       */
+function zoneVerdict(room, dir) {
+  if (room.best === dir) return { cls: "best", label: "1 · BEST" };
+  const si = room.second.indexOf(dir);
+  if (si !== -1) return { cls: "good", label: "2" + String.fromCharCode(65 + si) };
+  if (room.avoid.includes(dir)) return { cls: "avoid", label: "AVOID" };
+  return { cls: "neutral", label: "" };
 }
 
+function dirLabel(dir) {
+  return DIRECTIONS[dir].label;
+}
 function dirNames(dirs) {
-  return dirs.map((d) => DIRECTIONS[d].label).join(", ");
+  return dirs.map(dirLabel).join(", ");
 }
 
 function findRoom(query) {
@@ -43,14 +51,12 @@ function renderMap(room) {
   const map = $("#house-map");
   map.innerHTML = GRID_ORDER.map((dir) => {
     const d = DIRECTIONS[dir];
-    const status = room ? zoneStatus(room, dir) : "neutral";
-    const verdict =
-      status === "best" ? "BEST" : status === "good" ? "GOOD" : status === "avoid" ? "AVOID" : "";
+    const v = room ? zoneVerdict(room, dir) : { cls: "neutral", label: "" };
     return `
-      <div class="zone ${status}" data-dir="${dir}" title="Click for the full ${d.label} zone profile">
+      <div class="zone ${v.cls}" data-dir="${dir}" title="Click for the full ${d.label} zone profile">
         <span class="dir">${dir === "C" ? "⊙" : dir}</span>
         <span class="hindi">${d.hindi}</span>
-        ${verdict ? `<span class="verdict">${verdict}</span>` : ""}
+        ${v.label ? `<span class="verdict">${v.label}</span>` : ""}
       </div>`;
   }).join("");
   map.querySelectorAll(".zone").forEach((z) =>
@@ -59,8 +65,10 @@ function renderMap(room) {
 }
 
 /* ---------------- zone profile (reverse lookup) ---------------- */
-function roomsByZone(dir, key) {
-  return ROOMS.filter((r) => r[key].includes(dir));
+function roomsByZone(dir, kind) {
+  if (kind === "best")   return ROOMS.filter((r) => r.best === dir);
+  if (kind === "second") return ROOMS.filter((r) => r.second.includes(dir));
+  return ROOMS.filter((r) => r.avoid.includes(dir));
 }
 
 function roomList(rooms) {
@@ -87,8 +95,8 @@ function showZone(dir) {
       <span><b>Nature:</b> ${d.nature}</span>
     </div>
     <div class="verdict-rows">
-      <div class="verdict-row best"><b>Place here:</b> <span class="zone-rooms">${roomList(roomsByZone(dir, "best"))}</span></div>
-      <div class="verdict-row good"><b>Acceptable:</b> <span class="zone-rooms">${roomList(roomsByZone(dir, "good"))}</span></div>
+      <div class="verdict-row best"><b>Best for (1):</b> <span class="zone-rooms">${roomList(roomsByZone(dir, "best"))}</span></div>
+      <div class="verdict-row good"><b>2nd-best for:</b> <span class="zone-rooms">${roomList(roomsByZone(dir, "second"))}</span></div>
       <div class="verdict-row avoid"><b>Never here:</b> <span class="zone-rooms">${roomList(roomsByZone(dir, "avoid"))}</span></div>
     </div>
     <div class="tips">
@@ -136,11 +144,20 @@ function showRoom(room) {
     ? `<a class="section-link" href="#entrance">Open the 32-pada Entrance Planner ↓</a>`
     : "";
 
+  const secondRows = room.second
+    .map((dir, i) => {
+      const tag = "2" + String.fromCharCode(65 + i);
+      return `<div class="verdict-row good">
+                <b><span class="tag">${tag}</span> Second best:</b> <span>${dirLabel(dir)}</span>
+              </div>`;
+    })
+    .join("");
+
   $("#room-info").innerHTML = `
     <div class="room-title">${room.icon} ${room.name}</div>
     <div class="verdict-rows">
-      <div class="verdict-row best"><b>Best:</b> <span>${dirNames(room.best)}</span></div>
-      ${room.good.length ? `<div class="verdict-row good"><b>Second best:</b> <span>${dirNames(room.good)}</span></div>` : ""}
+      <div class="verdict-row best"><b><span class="tag">1</span> Best:</b> <span>${dirLabel(room.best)}</span></div>
+      ${secondRows}
       <div class="verdict-row avoid"><b>Always avoid:</b> <span>${dirNames(room.avoid)}</span></div>
     </div>
     <div class="why">${room.why}</div>
@@ -179,7 +196,7 @@ function openSuggestions(items) {
       (r) => `
       <div class="suggestion" data-id="${r.id}">
         <span>${r.icon}</span><span>${r.name}</span>
-        <span class="alias">${r.best.map((d) => DIRECTIONS[d].label).join(", ")}</span>
+        <span class="alias">${dirLabel(r.best)}</span>
       </div>`
     )
     .join("");

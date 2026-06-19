@@ -12,12 +12,16 @@ to **Vastu Shastra** (the Vastu Purusha Mandala).
 sunroom, kids room, mandir, toilet, kitchen, and many more) and the 3×3 house map
 instantly shows:
 
-| Colour | Meaning |
-|--------|---------|
-| 🟢 **Green** | Best position — place the room here |
-| 🟠 **Orange** | Second-best position — acceptable alternative |
-| 🔴 **Red** | Always avoid — never place the room here |
-| ⚪ Grey | Neutral zone |
+| Badge | Colour | Meaning |
+|-------|--------|---------|
+| **1 · BEST** | 🟢 Green | The single best position — place the room here |
+| **2A**, **2B**, **2C** | 🟠 Orange | Second-best alternates, ranked in priority order |
+| **AVOID** | 🔴 Red | Always avoid — never place the room here |
+| — | ⚪ Grey | Neutral zone |
+
+When a room has more than one acceptable second-best direction, each one is
+marked separately as **2A**, **2B** (and **2C** where applicable) on both the
+house map and the detail panel, so you can see every fallback option at a glance.
 
 Each room also lists the reasoning behind the placement and practical notes
 (sleeping direction, stove orientation, drainage slope, etc.).
@@ -40,15 +44,19 @@ Each room also lists the reasoning behind the placement and practical notes
 - **Doshas & Remedies** — 15 common defects (toilet in NE, kitchen in N, cut
   SW corner…) with severity and practical mitigations for existing buildings.
 
-## Rooms covered (21)
+## Rooms covered (32)
 
 Master Bedroom · Bedroom · Kids Room · Guest Bedroom · Mandir / Pooja Room ·
 Kitchen · Toilet · Washroom / Bathroom · Sunroom · Living Room · Dining Room ·
-Study Room · Staircase · Store Room · Main Entrance · Garage · Balcony ·
-Underground Water Tank · Overhead Water Tank · Septic Tank · Brahmasthan
+Study Room · Home Office / Workspace · Elders / Grandparents Room ·
+Cash Locker / Safe (Almirah) · Wardrobe / Dressing Room · Staircase ·
+Lift / Elevator · Store Room · Main Entrance · Garage · Servant Room ·
+Gym / Exercise Room · Balcony · Garden / Lawn · Tulsi Plant · Swimming Pool ·
+Generator / Inverter / Electrical · Underground Water Tank · Overhead Water Tank ·
+Septic Tank · Brahmasthan
 
 Typing understands aliases — e.g. *pooja*, *puja room*, *temple* all find the
-Mandir; *wc* finds the Toilet.
+Mandir; *wc* finds the Toilet; *tijori* or *safe* find the Cash Locker.
 
 ## Run it locally
 

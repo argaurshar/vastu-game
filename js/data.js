@@ -89,20 +89,29 @@ const DIRECTIONS = {
 /* Grid order used to render the 3x3 house map */
 const GRID_ORDER = ["NW", "N", "NE", "W", "C", "E", "SW", "S", "SE"];
 
+
+/* ============================================================
+   Room placement model:
+     best   -> the single first-best zone   (GREEN, "1 · BEST")
+     second -> ordered alternates           (ORANGE, "2A", "2B", "2C" …)
+     avoid  -> never place here             (RED, "AVOID")
+   The order of the `second` array is meaningful: index 0 = 2A,
+   index 1 = 2B, and so on. Anything unlisted renders neutral.
+   ============================================================ */
 const ROOMS = [
   {
     id: "master-bedroom",
     name: "Master Bedroom",
     icon: "🛏️",
     aliases: ["master bedroom", "main bedroom", "couple bedroom", "parents room"],
-    best:  ["SW"],
-    good:  ["S", "W"],
-    avoid: ["NE", "SE"],
-    why: "South-West is ruled by the Earth element — it brings stability, authority and restful sleep for the head of the family.",
+    best:   "SW",
+    second: ["S", "W"],
+    avoid:  ["NE", "SE", "N"],
+    why: "South-West is ruled by the Earth element — it brings stability, authority and restful sleep for the head of the family. South and West are the next-strongest earth/water zones.",
     tips: [
       "Sleep with your head towards the South or West.",
       "Place heavy wardrobes along the South or West wall.",
-      "Avoid mirrors facing the bed."
+      "Avoid mirrors facing the bed and a toilet sharing the headboard wall."
     ]
   },
   {
@@ -110,12 +119,12 @@ const ROOMS = [
     name: "Bedroom (General)",
     icon: "🛌",
     aliases: ["bedroom", "bed room", "sleeping room"],
-    best:  ["SW", "S"],
-    good:  ["W", "NW"],
-    avoid: ["NE", "SE"],
-    why: "Earth-dominated zones (SW, S) promote deep, grounded sleep. The fiery SE causes restlessness; the sacred NE should stay light and open.",
+    best:   "SW",
+    second: ["S", "W"],
+    avoid:  ["NE", "SE"],
+    why: "Earth-dominated zones promote deep, grounded sleep. South-West is best; South and West are the strong alternates. The fiery SE causes restlessness and the sacred NE must stay light.",
     tips: [
-      "Keep the bed away from the wall sharing a toilet.",
+      "Keep the bed away from any wall shared with a toilet.",
       "Use calm, earthy colours on the walls.",
       "Never sleep with feet pointing towards the door."
     ]
@@ -125,25 +134,25 @@ const ROOMS = [
     name: "Kids Room",
     icon: "🧸",
     aliases: ["kids room", "children room", "child room", "children's room", "kid room", "nursery"],
-    best:  ["W"],
-    good:  ["NW", "N"],
-    avoid: ["SW", "SE"],
-    why: "The West (Varuna) supports learning and creativity in children. South-West belongs to the elders, and the fiery South-East makes kids aggressive and restless.",
+    best:   "W",
+    second: ["NW", "N"],
+    avoid:  ["SW", "SE", "S"],
+    why: "The West (Varuna) supports a child's learning and creativity. North-West and North are good alternates. South-West belongs to the elders and the fiery SE makes children restless.",
     tips: [
       "Study desk should face East or North.",
-      "Use green or light blue tones for concentration.",
-      "Kids should sleep with head towards the East or South."
+      "Children should sleep with head towards the East or South.",
+      "Use green or light blue tones to aid concentration."
     ]
   },
   {
     id: "guest-bedroom",
     name: "Guest Bedroom",
-    icon: "🚪",
+    icon: "🛎️",
     aliases: ["guest bedroom", "guest room", "visitors room"],
-    best:  ["NW"],
-    good:  ["W", "N"],
-    avoid: ["SW", "NE"],
-    why: "North-West is ruled by Vayu (air/movement) — perfect for guests, who are temporary by nature. South-West would give guests dominance over the house owners.",
+    best:   "NW",
+    second: ["W", "N"],
+    avoid:  ["SW", "NE", "SE"],
+    why: "North-West (Vayu, movement) suits guests, who are temporary by nature. West and North are workable alternates. South-West would give guests dominance over the owners.",
     tips: [
       "Keep guest beds in the SW corner of the NW room.",
       "Light, airy décor suits this moving-energy zone."
@@ -154,14 +163,14 @@ const ROOMS = [
     name: "Mandir / Pooja Room",
     icon: "🛕",
     aliases: ["mandir", "pooja room", "puja room", "temple", "prayer room", "pooja", "puja", "altar"],
-    best:  ["NE"],
-    good:  ["E", "N"],
-    avoid: ["S", "SW", "C"],
-    why: "North-East (Ishan Kona) is the most sacred zone — the corner of divinity and water. Morning sun purifies this space, ideal for prayer and meditation.",
+    best:   "NE",
+    second: ["E", "N"],
+    avoid:  ["S", "SW", "SE", "C"],
+    why: "North-East (Ishan Kona) is the most sacred zone — the corner of divinity and water. East and North are the next-best. Morning sun purifies this space for prayer and meditation.",
     tips: [
-      "Face East while praying.",
-      "Never place the mandir under a staircase or next to a toilet.",
-      "Idols should not face each other; keep them a few inches from the wall.",
+      "Face East or North while praying.",
+      "Never place the mandir under a staircase or next to/above a toilet.",
+      "Idols should not face each other; keep them a few inches off the wall.",
       "Use white, light yellow or light blue colours."
     ]
   },
@@ -170,10 +179,10 @@ const ROOMS = [
     name: "Kitchen",
     icon: "🍳",
     aliases: ["kitchen", "cooking room", "rasoi"],
-    best:  ["SE"],
-    good:  ["NW"],
-    avoid: ["NE", "SW", "N", "C"],
-    why: "South-East is the Agni (fire) corner — the natural home of the cooking flame. A kitchen in the watery NE or earthy SW creates elemental clash.",
+    best:   "SE",
+    second: ["NW", "S"],
+    avoid:  ["NE", "SW", "N", "C"],
+    why: "South-East is the Agni (fire) corner — the natural home of the cooking flame. North-West is the recognised alternate; South is workable. A kitchen in the watery NE or earthy SW creates an elemental clash.",
     tips: [
       "Cook facing East.",
       "Place the sink in the NE of the kitchen, away from the stove (fire vs water).",
@@ -185,13 +194,13 @@ const ROOMS = [
     name: "Toilet",
     icon: "🚽",
     aliases: ["toilet", "wc", "latrine", "lavatory", "commode"],
-    best:  ["NW"],
-    good:  ["W", "S"],
-    avoid: ["NE", "SW", "C", "E"],
-    why: "North-West (Vayu) is the zone of disposal and movement — waste leaves the house easily. A toilet in the sacred NE or stability-zone SW is the biggest Vastu defect.",
+    best:   "NW",
+    second: ["W", "S"],
+    avoid:  ["NE", "SW", "C", "E"],
+    why: "North-West (Vayu) is the zone of disposal — waste leaves the house easily. West and South are acceptable alternates. A toilet in the sacred NE or the stability-zone SW is the worst Vastu defect.",
     tips: [
       "The toilet seat should face North or South (never East or West).",
-      "Keep the toilet door closed at all times.",
+      "Keep the door closed and the exhaust running.",
       "Never build a toilet above or below the pooja room or kitchen."
     ]
   },
@@ -199,15 +208,15 @@ const ROOMS = [
     id: "washroom",
     name: "Washroom / Bathroom",
     icon: "🚿",
-    aliases: ["washroom", "bathroom", "bath room", "bath", "shower room"],
-    best:  ["NW"],
-    good:  ["E", "W"],
-    avoid: ["NE", "SW", "C"],
-    why: "North-West handles outgoing water and air best. East is acceptable for a bathing-only space — morning sunlight is naturally antiseptic.",
+    aliases: ["washroom", "bathroom", "bath room", "bath", "shower room", "snan ghar"],
+    best:   "E",
+    second: ["NW", "N"],
+    avoid:  ["SW", "SE", "C"],
+    why: "For a bathing-only room the East is best — morning sunlight is naturally antiseptic. North-West handles outgoing water well and North is fine. Keep it out of the SW anchor and the SE fire corner.",
     tips: [
       "Drains should slope towards the North or East.",
-      "Use light colours; avoid dark blue or black.",
-      "Mirror on the North or East wall."
+      "Mirror on the North or East wall.",
+      "Use light colours; avoid dark blue or black."
     ]
   },
   {
@@ -215,10 +224,10 @@ const ROOMS = [
     name: "Sunroom",
     icon: "☀️",
     aliases: ["sunroom", "sun room", "solarium", "sun lounge", "conservatory"],
-    best:  ["E"],
-    good:  ["NE", "N"],
-    avoid: ["SW", "S"],
-    why: "The East welcomes the rising sun (Indra) — exactly what a sunroom is built for. Gentle morning UV is healing; harsh SW afternoon heat is draining.",
+    best:   "E",
+    second: ["NE", "N"],
+    avoid:  ["SW", "S"],
+    why: "The East welcomes the rising sun (Indra) — exactly what a sunroom is built for. North-East and North are the next-best. Harsh SW afternoon heat is draining.",
     tips: [
       "Large openings on the East and North sides.",
       "Keep this zone clutter-free and low-height.",
@@ -230,14 +239,14 @@ const ROOMS = [
     name: "Living Room",
     icon: "🛋️",
     aliases: ["living room", "drawing room", "hall", "lounge", "sitting room", "family room"],
-    best:  ["NE", "N"],
-    good:  ["E", "NW"],
-    avoid: ["SW"],
-    why: "North and North-East invite light, openness and positive social energy — perfect for welcoming guests. The SW should hold the master bedroom, not common space.",
+    best:   "N",
+    second: ["NE", "E", "NW"],
+    avoid:  ["SW", "S"],
+    why: "North (Kubera) invites light and positive social energy. North-East and East are excellent alternates and North-West works for a formal drawing room. The SW should hold the master bedroom, not common space.",
     tips: [
       "Seat the family head facing East or North.",
       "Heavy furniture towards the West or South-West of the room.",
-      "Electronics on the South-East side."
+      "Electronics and the TV on the South-East side."
     ]
   },
   {
@@ -245,29 +254,89 @@ const ROOMS = [
     name: "Dining Room",
     icon: "🍽️",
     aliases: ["dining room", "dining", "dining hall", "eating area"],
-    best:  ["W"],
-    good:  ["E", "N"],
-    avoid: ["S", "SW"],
-    why: "West (Varuna) is the traditional zone of nourishment and satisfaction — meals here bring contentment and family bonding.",
+    best:   "W",
+    second: ["NW", "E"],
+    avoid:  ["SW", "S"],
+    why: "West (Varuna) is the traditional zone of nourishment and satisfaction. North-West (near the kitchen) and East are good alternates. Avoid dining in the heavy SW or the disciplined South.",
     tips: [
-      "Eat facing East or West, never South.",
+      "Eat facing East, North or West — never South.",
       "Dining table should be square or rectangular, not circular.",
-      "Place near the kitchen, ideally to its West."
+      "Place it adjoining the kitchen, ideally to its West."
     ]
   },
   {
     id: "study-room",
     name: "Study Room",
     icon: "📚",
-    aliases: ["study room", "study", "library", "reading room", "home office", "office"],
-    best:  ["NE", "E"],
-    good:  ["N", "W"],
-    avoid: ["SW", "SE"],
-    why: "North-East and East carry the calm clarity of the morning sun and Mercury's intellect — ideal for focus, memory and learning.",
+    aliases: ["study room", "study", "library", "reading room"],
+    best:   "NE",
+    second: ["E", "N", "W"],
+    avoid:  ["SW", "SE", "S"],
+    why: "North-East and East carry the calm clarity of the morning sun — ideal for focus and memory. North aids career study and West suits steady, long-hour work. Avoid the heavy SW and fiery SE.",
     tips: [
       "Face East or North while studying.",
-      "Bookshelf on the East or North wall.",
+      "Bookshelf on the South or West wall, never the NE.",
       "Avoid studying under a beam or facing a blank wall."
+    ]
+  },
+  {
+    id: "home-office",
+    name: "Home Office / Workspace",
+    icon: "💼",
+    aliases: ["home office", "office", "work from home", "workspace", "cabin", "work room"],
+    best:   "N",
+    second: ["E", "NW", "W"],
+    avoid:  ["NE", "SE"],
+    why: "North is Kubera's zone of wealth and business growth; East gives drive and recognition. North-West and West suit administrative work. The owner should sit in the room's SW corner facing North or East.",
+    tips: [
+      "Sit with your back to a solid South or West wall, facing North or East.",
+      "Keep the desk's North-East corner clear for cash flow and clarity.",
+      "Place the safe/locker on the South-West wall opening towards the North."
+    ]
+  },
+  {
+    id: "elders-room",
+    name: "Elders / Grandparents Room",
+    icon: "👴",
+    aliases: ["elders room", "grandparents room", "parents room", "in-laws room", "old age room"],
+    best:   "SW",
+    second: ["S", "W"],
+    avoid:  ["NE", "SE"],
+    why: "The South-West gives the elders the same authority, stability and grounding as the head of the family. South and West are calm, steady alternates that support rest and respect.",
+    tips: [
+      "Bed in the SW of the room, head towards South.",
+      "Keep the room well-ventilated with an easy, step-free approach.",
+      "Earthy, warm colours suit this zone."
+    ]
+  },
+  {
+    id: "cash-locker",
+    name: "Cash Locker / Safe (Almirah)",
+    icon: "🔐",
+    aliases: ["cash locker", "safe", "locker", "almirah", "money", "valuables", "jewellery", "tijori", "vault"],
+    best:   "SW",
+    second: ["S", "W"],
+    avoid:  ["NE", "SE", "C"],
+    why: "Wealth is anchored in the heavy South-West and should open towards the North (Kubera) so it keeps refilling. South and West also hold value securely. Never keep the safe in the light NE or fiery SE.",
+    tips: [
+      "Place the safe against the South or West wall, its door opening towards the North.",
+      "Keep a small amount of cash or gold always inside — never let it sit empty.",
+      "Do not put the locker in a bedroom's SE or under a beam."
+    ]
+  },
+  {
+    id: "wardrobe",
+    name: "Wardrobe / Dressing Room",
+    icon: "👗",
+    aliases: ["wardrobe", "dressing room", "dresser", "closet", "almirah", "cupboard"],
+    best:   "SW",
+    second: ["S", "W"],
+    avoid:  ["NE", "SE"],
+    why: "Heavy storage belongs in the earth zones. South-West is best, with South and West as alternates — they add the weight these corners need. Keep wardrobes out of the light North-East.",
+    tips: [
+      "Tall wardrobes along the South or West wall.",
+      "A dressing mirror on the North or East wall; never facing the bed.",
+      "Store heavier items on the lower shelves."
     ]
   },
   {
@@ -275,10 +344,10 @@ const ROOMS = [
     name: "Staircase",
     icon: "🪜",
     aliases: ["staircase", "stairs", "stairway", "steps"],
-    best:  ["SW"],
-    good:  ["S", "W"],
-    avoid: ["NE", "C"],
-    why: "Heavy structures belong in the Earth zone (SW). A staircase in the NE or centre crushes the most sensitive energy points of the home.",
+    best:   "SW",
+    second: ["S", "W"],
+    avoid:  ["NE", "C", "N", "E"],
+    why: "A staircase is a heavy structure and belongs in the Earth zone (SW), with South and West as alternates. Stairs in the NE or the centre crush the most sensitive energy points of the home.",
     tips: [
       "Stairs should turn clockwise while going up.",
       "Always keep an odd number of steps.",
@@ -286,17 +355,32 @@ const ROOMS = [
     ]
   },
   {
+    id: "lift",
+    name: "Lift / Elevator",
+    icon: "🛗",
+    aliases: ["lift", "elevator", "home lift"],
+    best:   "SW",
+    second: ["S", "W"],
+    avoid:  ["NE", "C", "N", "E"],
+    why: "A lift is heavy and in constant motion, so it sits best in the South-West, with South and West acceptable. It must never occupy the light North-East or the open Brahmasthan.",
+    tips: [
+      "Keep the lift shaft out of the exact centre of the plan.",
+      "Balance a SW lift with equally heavy construction around it.",
+      "Never sacrifice the NE corner for a lift or machine room."
+    ]
+  },
+  {
     id: "store-room",
     name: "Store Room",
     icon: "📦",
-    aliases: ["store room", "storeroom", "storage", "store", "godown"],
-    best:  ["SW"],
-    good:  ["W", "S", "NW"],
-    avoid: ["NE", "C"],
-    why: "Heavy stored goods anchor the South-West Earth zone, strengthening stability. Clutter in the NE blocks the home's incoming positive energy.",
+    aliases: ["store room", "storeroom", "storage", "store", "godown", "pantry"],
+    best:   "SW",
+    second: ["W", "S", "NW"],
+    avoid:  ["NE", "C"],
+    why: "Heavy stored goods anchor the South-West Earth zone. West and South are strong alternates and North-West suits a fast-moving pantry. Clutter in the NE blocks the home's incoming positive energy.",
     tips: [
-      "Store grains in the SW or W.",
-      "Empty containers should not be kept open.",
+      "Store grains and heavy stock in the SW or W.",
+      "Keep a moving pantry (daily-use) in the NW.",
       "Declutter regularly — stagnant items hold stagnant energy."
     ]
   },
@@ -305,15 +389,15 @@ const ROOMS = [
     name: "Main Entrance",
     icon: "🚪",
     aliases: ["main entrance", "entrance", "main door", "front door", "gate", "entry"],
-    best:  ["NE", "N", "E"],
-    good:  ["W", "NW"],
-    avoid: ["SW", "S", "SE"],
-    why: "An entrance in the North-East, North or East lets the morning sun and Kubera's prosperity flow straight into the home.",
+    best:   "NE",
+    second: ["N", "E", "W"],
+    avoid:  ["SW", "S", "SE"],
+    why: "An entrance in the North-East lets morning sun and prosperity flow in. North (Kubera) and East (Indra) are the next-best, and West is workable. Use the 32-pada planner to fix the exact door position on the chosen wall.",
     tips: [
       "The main door should be the largest door in the house.",
       "It should open inward and clockwise.",
-      "Keep the entrance brightly lit and free of shoes/clutter.",
-      "A nameplate invites positive opportunities."
+      "Place the door on an auspicious pada (N3/N4/N5, E3/E4, W3/W4).",
+      "Keep the entrance bright, clean and free of shoes/clutter."
     ]
   },
   {
@@ -321,10 +405,10 @@ const ROOMS = [
     name: "Garage / Parking",
     icon: "🚗",
     aliases: ["garage", "parking", "car park", "car porch", "carport"],
-    best:  ["NW"],
-    good:  ["SE", "W"],
-    avoid: ["NE", "SW", "C"],
-    why: "Vehicles are moving objects — they belong in the Vayu (air/movement) corner, the North-West. They should never block the sacred NE.",
+    best:   "NW",
+    second: ["SE", "S"],
+    avoid:  ["NE", "SW", "C"],
+    why: "Vehicles are moving objects, so they belong in the Vayu (air/movement) corner, the North-West. South-East and South are acceptable alternates. Parking should never block the sacred NE.",
     tips: [
       "Park vehicles facing North or East.",
       "Keep flammables out of the garage's NE corner.",
@@ -332,29 +416,119 @@ const ROOMS = [
     ]
   },
   {
+    id: "servant-room",
+    name: "Servant Room",
+    icon: "🧹",
+    aliases: ["servant room", "maid room", "helper room", "staff room", "driver room"],
+    best:   "NW",
+    second: ["SE", "W"],
+    avoid:  ["NE", "SW", "C"],
+    why: "North-West suits help and staff, whose role is supportive and changeable. South-East and West are workable. Staff quarters must not take the SW (owner's authority) or the sacred NE.",
+    tips: [
+      "Keep it as a self-contained corner unit.",
+      "Provide separate ventilation and a simple, clean layout.",
+      "Avoid placing it over the pooja room or main bedroom."
+    ]
+  },
+  {
+    id: "gym",
+    name: "Gym / Exercise Room",
+    icon: "🏋️",
+    aliases: ["gym", "exercise room", "workout room", "fitness", "yoga room"],
+    best:   "NW",
+    second: ["S", "E"],
+    avoid:  ["NE", "SW", "C"],
+    why: "Physical activity is movement energy, best placed in the North-West. South gives stamina and East gives morning vitality. Keep heavy equipment out of the NE and the central Brahmasthan.",
+    tips: [
+      "Face North or East while exercising.",
+      "Heaviest machines along the South or West wall.",
+      "Keep a dedicated yoga/meditation mat in the East or NE of the room."
+    ]
+  },
+  {
     id: "balcony",
     name: "Balcony / Verandah",
     icon: "🌅",
     aliases: ["balcony", "verandah", "veranda", "terrace", "porch", "deck"],
-    best:  ["NE", "N", "E"],
-    good:  ["NW"],
-    avoid: ["SW", "S"],
-    why: "Open, low, light spaces in the North and East welcome beneficial morning energy. Heavy, covered mass belongs to the South-West instead.",
+    best:   "NE",
+    second: ["N", "E"],
+    avoid:  ["SW", "S", "W"],
+    why: "Open, low, light spaces in the North-East, North and East welcome beneficial morning energy. Heavy, covered mass belongs to the South and West instead.",
     tips: [
-      "Keep balconies in N/E lower than the rest of the floor.",
+      "Keep N/E balconies lower than the rest of the floor.",
       "Avoid heavy planters in the NE balcony corner.",
       "Morning tea here recharges the whole day."
+    ]
+  },
+  {
+    id: "garden",
+    name: "Garden / Lawn",
+    icon: "🌳",
+    aliases: ["garden", "lawn", "yard", "open space", "landscaping", "kitchen garden"],
+    best:   "NE",
+    second: ["N", "E"],
+    avoid:  ["SW", "S"],
+    why: "Open lawn and light planting belong in the North-East, North and East, keeping these zones low and bright. Tall, heavy trees should sit on the South and West to weight those corners.",
+    tips: [
+      "Keep the NE open with grass or low plants only.",
+      "Plant big trees (mango, neem) on the South or West boundary.",
+      "Tulsi in the NE; avoid thorny plants and cactus near the house."
+    ]
+  },
+  {
+    id: "tulsi",
+    name: "Tulsi Plant (Vrindavan)",
+    icon: "🌿",
+    aliases: ["tulsi", "tulsi plant", "holy basil", "tulsi vrindavan", "plant"],
+    best:   "NE",
+    second: ["E", "N"],
+    avoid:  ["S", "SW", "W"],
+    why: "The sacred Tulsi thrives on morning sun and purifies the most auspicious corner. North-East is ideal, with East and North as alternates. It should never sit in the southern or western heavy zones.",
+    tips: [
+      "Raise it on a clean platform (Vrindavan) in the NE of the courtyard or balcony.",
+      "Offer water in the morning; keep the surroundings clean.",
+      "An odd number of Tulsi plants is considered auspicious."
+    ]
+  },
+  {
+    id: "swimming-pool",
+    name: "Swimming Pool / Water Body",
+    icon: "🏊",
+    aliases: ["swimming pool", "pool", "water body", "fountain", "pond", "water feature"],
+    best:   "NE",
+    second: ["N", "E"],
+    avoid:  ["SW", "SE", "S", "C"],
+    why: "Standing water amplifies the water element of the North-East, North and East — a prosperity booster when kept clean. Water in the SW destabilises the home and in the SE clashes with fire.",
+    tips: [
+      "Keep the pool in the NE of the open plot, water clean and moving.",
+      "Never place a pool or large tank in the SW.",
+      "A small fountain in the NE of the living room is auspicious."
+    ]
+  },
+  {
+    id: "electrical",
+    name: "Generator / Inverter / Electrical",
+    icon: "⚡",
+    aliases: ["generator", "inverter", "electrical", "meter", "electric panel", "db box", "transformer", "switchboard"],
+    best:   "SE",
+    second: ["S", "NW"],
+    avoid:  ["NE", "SW", "C"],
+    why: "Electrical and heat-producing equipment belongs in the Agni (fire) corner, the South-East. South and North-West are acceptable. Keep electrical loads out of the watery NE and the anchoring SW.",
+    tips: [
+      "Mount the main meter and inverter on the SE wall.",
+      "Keep batteries ventilated and off the NE corner.",
+      "Heavy machinery and motors suit the South or South-East."
     ]
   },
   {
     id: "water-tank-underground",
     name: "Water Tank (Underground)",
     icon: "💧",
-    aliases: ["underground water tank", "water tank underground", "borewell", "well", "sump", "underground tank"],
-    best:  ["NE"],
-    good:  ["N", "E"],
-    avoid: ["SW", "SE", "C"],
-    why: "Water below ground level in the North-East amplifies the zone's natural water element — a classic prosperity booster.",
+    aliases: ["underground water tank", "water tank underground", "borewell", "well", "sump", "underground tank", "boring"],
+    best:   "NE",
+    second: ["N", "E"],
+    avoid:  ["SW", "SE", "C", "S"],
+    why: "Water below ground level in the North-East amplifies the zone's natural water element — a classic prosperity booster. North and East are the next-best. Never sink a tank or well in the SW.",
     tips: [
       "Never dig a well or sump in the SW — it destabilises the house.",
       "Keep the tank clean; stored water reflects stored fortune."
@@ -365,13 +539,14 @@ const ROOMS = [
     name: "Water Tank (Overhead)",
     icon: "🗼",
     aliases: ["overhead water tank", "water tank overhead", "rooftop tank", "overhead tank", "terrace tank"],
-    best:  ["SW"],
-    good:  ["W", "S"],
-    avoid: ["NE", "SE", "C"],
-    why: "Overhead weight strengthens the heavy South-West zone. An elevated tank in the NE crushes the most sacred, light corner of the home.",
+    best:   "SW",
+    second: ["W", "S"],
+    avoid:  ["NE", "SE", "C", "N"],
+    why: "Overhead weight strengthens the heavy South-West zone, with West and South as alternates. An elevated tank in the NE crushes the most sacred, light corner of the home.",
     tips: [
-      "Use a dark-coloured tank in the SW (absorbs heat, adds weight).",
-      "Keep it slightly off the exact SW corner point."
+      "Use a dark-coloured tank in the SW (adds weight, absorbs heat).",
+      "Keep it slightly off the exact SW corner point.",
+      "The overhead tank should not sit over the NE or the centre."
     ]
   },
   {
@@ -379,13 +554,14 @@ const ROOMS = [
     name: "Septic Tank",
     icon: "🕳️",
     aliases: ["septic tank", "soak pit", "sewage tank", "drainage pit"],
-    best:  ["NW"],
-    good:  ["W"],
-    avoid: ["NE", "SW", "SE", "C", "E"],
-    why: "Waste must exit through the North-West movement zone. A septic tank in the NE poisons the home's most positive energy source.",
+    best:   "NW",
+    second: ["W", "S"],
+    avoid:  ["NE", "SW", "SE", "C", "E"],
+    why: "Waste must exit through the North-West movement zone, with West and South as the only acceptable alternates. A septic tank in the NE poisons the home's most positive energy source.",
     tips: [
-      "Keep it away from the main entrance and kitchen.",
-      "The tank should not touch the compound wall on the N or E side."
+      "Keep it away from the main entrance and the kitchen.",
+      "The tank should not touch the compound wall on the N or E side.",
+      "Never place it in the NE or below the pooja room."
     ]
   },
   {
@@ -393,10 +569,10 @@ const ROOMS = [
     name: "Brahmasthan (Centre)",
     icon: "🕉️",
     aliases: ["brahmasthan", "centre", "center", "courtyard", "central courtyard", "aangan"],
-    best:  ["C"],
-    good:  [],
-    avoid: ["NW", "N", "NE", "W", "E", "SW", "S", "SE"],
-    why: "The centre of the home is the lungs of the Vastu Purusha. It must remain open, light and empty — a courtyard, skylight or open hall is ideal.",
+    best:   "C",
+    second: [],
+    avoid:  ["NW", "N", "NE", "W", "E", "SW", "S", "SE"],
+    why: "The centre of the home is the lungs of the Vastu Purusha. It must remain open, light and empty — a courtyard, skylight or open hall is ideal. It has no second-best: nothing heavy belongs here.",
     tips: [
       "No walls, pillars, toilets, stairs or heavy furniture in the centre.",
       "A skylight or open courtyard here energises the whole house.",
