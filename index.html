@@ -80,15 +80,10 @@
     <section id="analyze">
       <h2>Analyze a Floor Plan</h2>
       <p class="section-sub">
-        Upload your floor plan and get a Vastu compliance report — each room scored by zone,
-        the doshas found, and concrete rectifications. Use <b>AI analysis</b> (Google Gemini reads
-        the plan automatically) or <b>Manual grid</b> (tag the zones yourself — no key needed).
+        Upload your floor plan and let <b>Google Gemini</b> read it automatically, then get a
+        Vastu compliance report — each room scored by zone, the doshas found, and concrete
+        rectifications, with a marked-up plan and a printable PDF.
       </p>
-
-      <div class="tabs an-tabs">
-        <div class="tab an-tab active" data-mode="manual">✍️ Manual grid (no key)</div>
-        <div class="tab an-tab" data-mode="ai">🤖 AI analysis (Gemini)</div>
-      </div>
 
       <div class="card">
         <div class="upload-row">
@@ -116,7 +111,7 @@
       </div>
 
       <!-- AI panel -->
-      <div id="ai-panel" class="card analyze-panel" style="display:none">
+      <div id="ai-panel" class="card analyze-panel">
         <details class="ai-settings" open>
           <summary>Gemini API settings</summary>
           <div class="settings-grid">
@@ -133,7 +128,7 @@
           </div>
           <p class="an-note">
             🔒 Your key is stored only in this browser (localStorage) and is sent directly to Google,
-            never to this site's server. In AI mode your plan image is uploaded to Google's Gemini API
+            never to this site's server. Your plan (image or PDF) is uploaded to Google's Gemini API
             for analysis. Get a free key at
             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
             <br />⚡ Free keys have low limits — if you hit a rate-limit (429), choose
@@ -143,17 +138,6 @@
         <button class="btn" id="ai-analyze" disabled>Analyze with Gemini</button>
         <div id="ai-progress" class="ai-progress"><div class="bar"></div></div>
         <div id="ai-msg" class="an-msg"></div>
-      </div>
-
-      <!-- Manual panel -->
-      <div id="manual-panel" class="card analyze-panel">
-        <p class="an-note">Upload a plan, set which way North points, then assign rooms — either click a
-          zone on the plan overlay, or use the dropdowns below. The grid is oriented to your chosen
-          North (diagonals show a true rotated grid).</p>
-        <div id="plan-stage" class="plan-stage"></div>
-        <div id="zone-assign-list" class="zone-assign-list"></div>
-        <button class="btn" id="manual-report" disabled>Generate Vastu report</button>
-        <div id="manual-msg" class="an-msg"></div>
       </div>
 
       <div id="report" class="card" style="display:none"></div>

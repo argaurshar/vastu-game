@@ -366,14 +366,11 @@ document.addEventListener("DOMContentLoaded", () => {
    dirLabel, findRoom, GRID_ORDER.
    ============================================================ */
 const analyzer = {
-  mode: "manual",
-  imageDataUrl: null,   // raster for preview + manual overlay
-  pdfFile: null,        // kept so the preview can render lazily (manual mode only)
-  rendering: false,
+  imageDataUrl: null,   // raster of the plan (used for the report's marked-up image)
+  pdfFile: null,        // kept so the report can rasterise a PDF when needed
   aiBase64: null,       // bytes sent to Gemini (a PDF is sent as-is)
   aiMime: null,
-  north: "up",
-  manualAssign: {}   // { zone: [roomId, ...] }
+  north: "up"
 };
 
 /* --- orientation: which Vastu zone sits in each screen cell ---
@@ -442,9 +439,6 @@ function initAnalyzer() {
   const loadBtn = $("#load-models");
   if (loadBtn) loadBtn.addEventListener("click", loadModelsFromKey);
 
-  document.querySelectorAll(".an-tab").forEach((t) =>
-    t.addEventListener("click", () => setAnalyzerMode(t.dataset.mode))
-  );
   const file = $("#plan-file");
   if (file) file.addEventListener("change", (e) => handleUpload(e.target.files[0]));
 
@@ -453,7 +447,6 @@ function initAnalyzer() {
       analyzer.north = r.value;
       const nh = $("#north-hint");
       if (nh) nh.textContent = NORTH_LABEL[r.value] || r.value;
-      if (analyzer.imageDataUrl || analyzer.aiBase64) renderManualGrid();
     })
   );
   const nh0 = $("#north-hint");
@@ -461,33 +454,13 @@ function initAnalyzer() {
 
   const aiBtn = $("#ai-analyze");
   if (aiBtn) aiBtn.addEventListener("click", runAiAnalysis);
-  const manualBtn = $("#manual-report");
-  if (manualBtn) manualBtn.addEventListener("click", () => {
-    const { assignments } = collectManualAssignments();
-    if (!assignments.length) { setAnalyzerMsg("manual", "Assign at least one room to a zone first.", "warn"); return; }
-    renderReport(assignments, { north: analyzer.north, source: "manual" });
-  });
 
-  setAnalyzerMode("manual");
   /* warm the local PDF library in the background so PDF uploads feel instant */
   ensurePdfJs().catch(() => {});
 }
 
-function setAnalyzerMode(mode) {
-  analyzer.mode = mode;
-  document.querySelectorAll(".an-tab").forEach((t) =>
-    t.classList.toggle("active", t.dataset.mode === mode)
-  );
-  $("#ai-panel").style.display = mode === "ai" ? "" : "none";
-  $("#manual-panel").style.display = mode === "manual" ? "" : "none";
-  if (mode === "manual") {
-    if (analyzer.pdfFile && !analyzer.imageDataUrl) ensurePdfPreview();
-    if (analyzer.imageDataUrl || analyzer.aiBase64) renderManualGrid();
-  }
-}
-
 function setAnalyzerMsg(scope, msg, kind) {
-  const el = $(scope === "ai" ? "#ai-msg" : "#manual-msg");
+  const el = $("#ai-msg");
   if (!el) return;
   el.className = "an-msg " + (kind || "");
   el.textContent = msg || "";
@@ -503,13 +476,12 @@ function readDataUrl(file) {
   });
 }
 
-function showPreviewAndGrid() {
+function showPreview() {
   const prev = $("#plan-preview");
   if (prev) {
     if (analyzer.imageDataUrl) { prev.src = analyzer.imageDataUrl; prev.style.display = "block"; }
     else { prev.removeAttribute("src"); prev.style.display = "none"; }
   }
-  if (analyzer.mode === "manual") renderManualGrid();
 }
 
 /* Read bytes once and enable the buttons immediately. A PDF is sent to
@@ -520,50 +492,34 @@ async function handleUpload(file) {
   const isPdf = file.type === "application/pdf";
   const isImg = /^image\/(png|jpe?g|webp)$/.test(file.type);
   if (!isPdf && !isImg) {
-    setAnalyzerMsg(analyzer.mode, "Please upload a PNG, JPG, WEBP or PDF of the plan.", "warn");
+    setAnalyzerMsg("ai", "Please upload a PNG, JPG, WEBP or PDF of the plan.", "warn");
     return;
   }
 
   let dataUrl;
   try { dataUrl = await readDataUrl(file); }
-  catch (_) { setAnalyzerMsg(analyzer.mode, "Could not read the file.", "warn"); return; }
+  catch (_) { setAnalyzerMsg("ai", "Could not read the file.", "warn"); return; }
   const mm = /^data:(.+?);base64,(.*)$/.exec(dataUrl);
   analyzer.aiMime = mm ? mm[1] : file.type;
   analyzer.aiBase64 = mm ? mm[2] : "";
   $("#ai-analyze").disabled = false;
-  $("#manual-report").disabled = false;
-  setAnalyzerMsg("ai", "", "");
-  setAnalyzerMsg("manual", "", "");
 
   if (isImg) {
     analyzer.pdfFile = null;
     analyzer.imageDataUrl = dataUrl;
-    showPreviewAndGrid();
+    setAnalyzerMsg("ai", "", "");
+    showPreview();
     return;
   }
 
-  // PDF: ready for AI INSTANTLY — Gemini reads the PDF directly, so we do NOT
-  // rasterise it here (that render is what used to freeze the page for minutes).
-  // The preview is rendered lazily only when the user opens Manual mode.
+  // PDF: ready for AI instantly — Gemini reads the PDF directly. The raster is
+  // only produced later, for the report's marked-up plan.
   analyzer.pdfFile = file;
   analyzer.imageDataUrl = null;
+  showPreview();
   setAnalyzerMsg("ai", file.size > 18 * 1024 * 1024
     ? `PDF “${file.name}” ready, but large — if Gemini returns 400, export a smaller PDF or a PNG.`
     : `PDF “${file.name}” ready — click “Analyze with Gemini”.`, file.size > 18 * 1024 * 1024 ? "warn" : "");
-  setAnalyzerMsg("manual", "PDF ready. Open this tab to render a preview for manual tagging.", "");
-  if (analyzer.mode === "manual") { ensurePdfPreview(); renderManualGrid(); }
-}
-
-/* Render the stored PDF to a preview image — lazily, only for manual mode. */
-function ensurePdfPreview() {
-  if (!analyzer.pdfFile || analyzer.imageDataUrl || analyzer.rendering) return;
-  analyzer.rendering = true;
-  setAnalyzerMsg("manual", "Rendering a preview for manual tagging… you can start assigning zones now.", "busy");
-  pdfToImage(analyzer.pdfFile)
-    .then((img) => { analyzer.imageDataUrl = img; showPreviewAndGrid(); setAnalyzerMsg("manual", "", ""); })
-    .catch((err) => setAnalyzerMsg("manual",
-      "Couldn't render the PDF preview (" + err.message + "). AI mode still works; for manual tagging upload a PNG/JPG.", "warn"))
-    .finally(() => { analyzer.rendering = false; });
 }
 
 /* lazy-load pdf.js (UMD) once, then render page 1 to a PNG data URL */
@@ -606,157 +562,11 @@ async function pdfToImage(file) {
   );
 }
 
-/* ---------------- manual grid + assignments ---------------- */
-/* screen rotation per North; diagonals get a true 45°-rotated grid */
+/* screen rotation per North — used by the report's marked-up plan */
 const NORTH_ANGLE = {
   "up": 0, "up-right": 45, "right": 90, "down-right": 135,
   "down": 180, "down-left": 225, "left": 270, "up-left": 315
 };
-
-function assignedIcons(zone) {
-  return (analyzer.manualAssign[zone] || [])
-    .map((id) => { const r = ROOMS.find((x) => x.id === id); return r ? r.icon : ""; })
-    .join("");
-}
-
-function renderManualGrid() {
-  const angle = NORTH_ANGLE[analyzer.north] || 0;
-  const diagonal = angle % 90 !== 0;
-  /* diagonal: render canonical zones and rotate the whole grid to true North.
-     cardinal: keep the verified relabel (no rotation). */
-  const zones = diagonal ? GRID_ORDER : screenZones(analyzer.north);
-
-  const stage = $("#plan-stage");
-  if (stage) {
-    if (!analyzer.imageDataUrl) {
-      // preview not ready yet (e.g. PDF still rasterising) — still let the user assign via the list below
-      stage.classList.remove("clip");
-      stage.innerHTML = `<div class="plan-rendering">🖼️ Rendering plan preview… you can already assign zones below.</div>`;
-    } else {
-      const gridStyle = diagonal ? `transform:rotate(${angle}deg);` : "";
-      const labelStyle = diagonal ? `transform:rotate(${-angle}deg);` : "";
-      stage.classList.toggle("clip", diagonal);
-      stage.innerHTML =
-        `<img class="plan-img" src="${analyzer.imageDataUrl}" alt="floor plan" />
-         <div class="plan-grid" style="${gridStyle}">` +
-        zones.map((z) =>
-          `<div class="plan-cell" data-zone="${z}" title="Click to assign rooms to ${DIRECTIONS[z].label}">
-             <span class="plan-cell-label" style="${labelStyle}">
-               <b>${z === "C" ? "Brahma" : z}</b>
-               <em>${assignedIcons(z)}</em>
-             </span>
-           </div>`).join("") +
-        `</div>`;
-      stage.querySelectorAll(".plan-cell").forEach((cell) =>
-        cell.addEventListener("click", (e) => { e.stopPropagation(); openCellMenu(cell.dataset.zone, cell); })
-      );
-    }
-  }
-
-  const roomOptions = ROOMS.map((r) => `<option value="${r.id}">${r.icon} ${r.name}</option>`).join("");
-  const list = $("#zone-assign-list");
-  list.innerHTML = zones
-    .map((z) => {
-      const d = DIRECTIONS[z];
-      const tags = (analyzer.manualAssign[z] || [])
-        .map((id) => {
-          const r = ROOMS.find((x) => x.id === id);
-          return `<span class="assign-tag" data-zone="${z}" data-id="${id}">${r.icon} ${r.name} ✕</span>`;
-        })
-        .join("");
-      return `
-        <div class="assign-row">
-          <div class="assign-zone"><b>${z === "C" ? "C" : z}</b> ${d.label}</div>
-          <select class="room-picker" data-zone="${z}">
-            <option value="">+ add room…</option>${roomOptions}
-          </select>
-          <div class="assign-tags">${tags || '<em class="dim">none</em>'}</div>
-        </div>`;
-    })
-    .join("");
-
-  list.querySelectorAll(".room-picker").forEach((sel) =>
-    sel.addEventListener("change", () => {
-      addRoomToZone(sel.dataset.zone, sel.value);
-      sel.value = "";
-    })
-  );
-  list.querySelectorAll(".assign-tag").forEach((tag) =>
-    tag.addEventListener("click", () => removeRoomFromZone(tag.dataset.zone, tag.dataset.id))
-  );
-}
-
-function addRoomToZone(zone, id) {
-  if (!id) return;
-  analyzer.manualAssign[zone] = analyzer.manualAssign[zone] || [];
-  if (!analyzer.manualAssign[zone].includes(id)) analyzer.manualAssign[zone].push(id);
-  renderManualGrid();
-}
-function removeRoomFromZone(zone, id) {
-  analyzer.manualAssign[zone] = (analyzer.manualAssign[zone] || []).filter((x) => x !== id);
-  renderManualGrid();
-}
-
-/* ---- click-to-assign popover over an overlay cell ---- */
-function closeCellMenu() {
-  const m = $("#cell-menu");
-  if (m) m.remove();
-  document.removeEventListener("click", closeCellMenu);
-  document.removeEventListener("keydown", onCellMenuKey);
-}
-function onCellMenuKey(e) { if (e.key === "Escape") closeCellMenu(); }
-
-function openCellMenu(zone, cell) {
-  closeCellMenu();
-  const stage = $("#plan-stage");
-  const sr = stage.getBoundingClientRect();
-  const cr = cell.getBoundingClientRect();
-  const left = Math.max(4, Math.min(cr.left - sr.left + cr.width / 2 - 110, sr.width - 224));
-  const top = Math.max(4, cr.top - sr.top + cr.height / 2 - 10);
-
-  const assigned = analyzer.manualAssign[zone] || [];
-  const menu = document.createElement("div");
-  menu.id = "cell-menu";
-  menu.style.left = left + "px";
-  menu.style.top = top + "px";
-  menu.innerHTML =
-    `<div class="cell-menu-head"><b>${DIRECTIONS[zone].label}</b> — tap a room to toggle
-       <span class="cell-menu-close" title="Close">✕</span></div>
-     <div class="cell-menu-list">` +
-    ROOMS.map((r) => {
-      const on = assigned.includes(r.id);
-      return `<button class="cell-menu-item ${on ? "on" : ""}" data-id="${r.id}">${r.icon} ${r.name}${on ? " ✓" : ""}</button>`;
-    }).join("") +
-    `</div>`;
-  stage.appendChild(menu);
-
-  menu.addEventListener("click", (e) => e.stopPropagation());
-  menu.querySelector(".cell-menu-close").addEventListener("click", closeCellMenu);
-  menu.querySelectorAll(".cell-menu-item").forEach((b) =>
-    b.addEventListener("click", () => {
-      const id = b.dataset.id;
-      if ((analyzer.manualAssign[zone] || []).includes(id)) removeRoomFromZone(zone, id);
-      else addRoomToZone(zone, id);
-      const stillOpen = $("#cell-menu");           // renderManualGrid wiped the stage
-      if (!stillOpen) { const c = $(`.plan-cell[data-zone="${zone}"]`); if (c) openCellMenu(zone, c); }
-    })
-  );
-  setTimeout(() => {
-    document.addEventListener("click", closeCellMenu);
-    document.addEventListener("keydown", onCellMenuKey);
-  }, 0);
-}
-
-function collectManualAssignments() {
-  const assignments = [];
-  Object.keys(analyzer.manualAssign).forEach((zone) =>
-    (analyzer.manualAssign[zone] || []).forEach((id) => {
-      const room = ROOMS.find((r) => r.id === id);
-      if (room) assignments.push({ room, zone });
-    })
-  );
-  return { assignments };
-}
 
 /* ---------------- API key persistence ---------------- */
 function saveApiKey(k) { try { localStorage.setItem("vastu-gemini-key", k.trim()); } catch (_) {} }
