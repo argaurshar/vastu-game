@@ -652,3 +652,8 @@ section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
 }
 .cell-menu-item:hover { background: rgba(245, 185, 66, 0.12); }
 .cell-menu-item.on { color: var(--green); font-weight: 700; }
+
+.plan-rendering {
+  padding: 2rem 1rem; text-align: center; color: var(--text-dim);
+  font-size: 0.9rem; border: 1px dashed var(--neutral); border-radius: 10px;
+}

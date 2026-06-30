@@ -367,9 +367,9 @@ document.addEventListener("DOMContentLoaded", () => {
    ============================================================ */
 const analyzer = {
   mode: "manual",
-  imageDataUrl: null,
-  imageBase64: null,
-  imageMime: null,
+  imageDataUrl: null,   // raster for preview + manual overlay
+  aiBase64: null,       // bytes sent to Gemini (a PDF is sent as-is)
+  aiMime: null,
   north: "up",
   manualAssign: {}   // { zone: [roomId, ...] }
 };
@@ -446,7 +446,7 @@ function initAnalyzer() {
       analyzer.north = r.value;
       const nh = $("#north-hint");
       if (nh) nh.textContent = NORTH_LABEL[r.value] || r.value;
-      if (analyzer.imageDataUrl) renderManualGrid();
+      if (analyzer.imageDataUrl || analyzer.aiBase64) renderManualGrid();
     })
   );
   const nh0 = $("#north-hint");
@@ -473,7 +473,7 @@ function setAnalyzerMode(mode) {
   );
   $("#ai-panel").style.display = mode === "ai" ? "" : "none";
   $("#manual-panel").style.display = mode === "manual" ? "" : "none";
-  if (mode === "manual" && analyzer.imageDataUrl) renderManualGrid();
+  if (mode === "manual" && (analyzer.imageDataUrl || analyzer.aiBase64)) renderManualGrid();
 }
 
 function setAnalyzerMsg(scope, msg, kind) {
@@ -484,37 +484,64 @@ function setAnalyzerMsg(scope, msg, kind) {
 }
 
 /* ---------------- upload (image or PDF) ---------------- */
-function setUploadedImage(dataUrl, mimeFallback) {
-  analyzer.imageDataUrl = dataUrl;
-  const m = /^data:(.+?);base64,(.*)$/.exec(dataUrl);
-  analyzer.imageMime = m ? m[1] : (mimeFallback || "image/png");
-  analyzer.imageBase64 = m ? m[2] : "";
+function readDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("could not read the file"));
+    r.readAsDataURL(file);
+  });
+}
+
+function showPreviewAndGrid() {
   const prev = $("#plan-preview");
-  if (prev) { prev.src = dataUrl; prev.style.display = "block"; }
+  if (prev) {
+    if (analyzer.imageDataUrl) { prev.src = analyzer.imageDataUrl; prev.style.display = "block"; }
+    else { prev.removeAttribute("src"); prev.style.display = "none"; }
+  }
+  if (analyzer.mode === "manual") renderManualGrid();
+}
+
+/* Read bytes once and enable the buttons immediately. A PDF is sent to
+   Gemini as-is (it reads PDFs natively); the raster preview for manual
+   tagging is rendered in the background and never blocks the buttons. */
+async function handleUpload(file) {
+  if (!file) return;
+  const isPdf = file.type === "application/pdf";
+  const isImg = /^image\/(png|jpe?g|webp)$/.test(file.type);
+  if (!isPdf && !isImg) {
+    setAnalyzerMsg(analyzer.mode, "Please upload a PNG, JPG, WEBP or PDF of the plan.", "warn");
+    return;
+  }
+
+  let dataUrl;
+  try { dataUrl = await readDataUrl(file); }
+  catch (_) { setAnalyzerMsg(analyzer.mode, "Could not read the file.", "warn"); return; }
+  const mm = /^data:(.+?);base64,(.*)$/.exec(dataUrl);
+  analyzer.aiMime = mm ? mm[1] : file.type;
+  analyzer.aiBase64 = mm ? mm[2] : "";
   $("#ai-analyze").disabled = false;
   $("#manual-report").disabled = false;
   setAnalyzerMsg("ai", "", "");
   setAnalyzerMsg("manual", "", "");
-  if (analyzer.mode === "manual") renderManualGrid();
-}
 
-function handleUpload(file) {
-  if (!file) return;
-  if (file.type === "application/pdf") {
-    setAnalyzerMsg(analyzer.mode, "Rendering the first page of the PDF…", "busy");
-    pdfToImage(file)
-      .then((dataUrl) => setUploadedImage(dataUrl, "image/png"))
-      .catch((err) => setAnalyzerMsg(analyzer.mode,
-        "Couldn't render the PDF (" + err.message + "). PDF rendering needs an internet connection — upload a PNG/JPG instead.", "warn"));
+  if (isImg) {
+    analyzer.imageDataUrl = dataUrl;
+    showPreviewAndGrid();
     return;
   }
-  if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) {
-    setAnalyzerMsg(analyzer.mode, "Please upload a PNG, JPG, WEBP or PDF of the plan.", "warn");
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => setUploadedImage(reader.result, file.type);
-  reader.readAsDataURL(file);
+
+  // PDF: usable for AI right now; render the manual preview in the background.
+  analyzer.imageDataUrl = null;
+  setAnalyzerMsg("ai", file.size > 18 * 1024 * 1024
+    ? "PDF ready, but it's large — if Gemini returns a 400, export a smaller PDF or a PNG."
+    : "PDF ready — click “Analyze with Gemini”.", file.size > 18 * 1024 * 1024 ? "warn" : "");
+  setAnalyzerMsg("manual", "Rendering a preview for manual tagging… you can start assigning zones now.", "busy");
+  showPreviewAndGrid();
+  pdfToImage(file)
+    .then((img) => { analyzer.imageDataUrl = img; showPreviewAndGrid(); setAnalyzerMsg("manual", "", ""); })
+    .catch((err) => setAnalyzerMsg("manual",
+      "Couldn't render the PDF preview (" + err.message + "). AI mode still works; for manual tagging upload a PNG/JPG.", "warn"));
 }
 
 /* lazy-load pdf.js (UMD) once, then render page 1 to a PNG data URL */
@@ -543,12 +570,15 @@ async function pdfToImage(file) {
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
   const page = await pdf.getPage(1);
-  const viewport = page.getViewport({ scale: 2 });
+  const base = page.getViewport({ scale: 1 });
+  const maxDim = 1600;                                   // cap so encoding stays fast
+  const scale = Math.max(0.4, Math.min(2, maxDim / Math.max(base.width, base.height)));
+  const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
+  canvas.width = Math.round(viewport.width);
+  canvas.height = Math.round(viewport.height);
   await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-  return canvas.toDataURL("image/png");
+  return canvas.toDataURL("image/jpeg", 0.85);           // JPEG encodes far faster than PNG
 }
 
 /* ---------------- manual grid + assignments ---------------- */
@@ -573,23 +603,29 @@ function renderManualGrid() {
 
   const stage = $("#plan-stage");
   if (stage) {
-    const gridStyle = diagonal ? `transform:rotate(${angle}deg);` : "";
-    const labelStyle = diagonal ? `transform:rotate(${-angle}deg);` : "";
-    stage.classList.toggle("clip", diagonal);
-    stage.innerHTML =
-      `<img class="plan-img" src="${analyzer.imageDataUrl}" alt="floor plan" />
-       <div class="plan-grid" style="${gridStyle}">` +
-      zones.map((z) =>
-        `<div class="plan-cell" data-zone="${z}" title="Click to assign rooms to ${DIRECTIONS[z].label}">
-           <span class="plan-cell-label" style="${labelStyle}">
-             <b>${z === "C" ? "Brahma" : z}</b>
-             <em>${assignedIcons(z)}</em>
-           </span>
-         </div>`).join("") +
-      `</div>`;
-    stage.querySelectorAll(".plan-cell").forEach((cell) =>
-      cell.addEventListener("click", (e) => { e.stopPropagation(); openCellMenu(cell.dataset.zone, cell); })
-    );
+    if (!analyzer.imageDataUrl) {
+      // preview not ready yet (e.g. PDF still rasterising) — still let the user assign via the list below
+      stage.classList.remove("clip");
+      stage.innerHTML = `<div class="plan-rendering">🖼️ Rendering plan preview… you can already assign zones below.</div>`;
+    } else {
+      const gridStyle = diagonal ? `transform:rotate(${angle}deg);` : "";
+      const labelStyle = diagonal ? `transform:rotate(${-angle}deg);` : "";
+      stage.classList.toggle("clip", diagonal);
+      stage.innerHTML =
+        `<img class="plan-img" src="${analyzer.imageDataUrl}" alt="floor plan" />
+         <div class="plan-grid" style="${gridStyle}">` +
+        zones.map((z) =>
+          `<div class="plan-cell" data-zone="${z}" title="Click to assign rooms to ${DIRECTIONS[z].label}">
+             <span class="plan-cell-label" style="${labelStyle}">
+               <b>${z === "C" ? "Brahma" : z}</b>
+               <em>${assignedIcons(z)}</em>
+             </span>
+           </div>`).join("") +
+        `</div>`;
+      stage.querySelectorAll(".plan-cell").forEach((cell) =>
+        cell.addEventListener("click", (e) => { e.stopPropagation(); openCellMenu(cell.dataset.zone, cell); })
+      );
+    }
   }
 
   const roomOptions = ROOMS.map((r) => `<option value="${r.id}">${r.icon} ${r.name}</option>`).join("");
@@ -725,7 +761,7 @@ function buildGeminiBody() {
     contents: [{
       parts: [
         { text: GEMINI.prompt(analyzer.north) },
-        { inline_data: { mime_type: analyzer.imageMime, data: analyzer.imageBase64 } }
+        { inline_data: { mime_type: analyzer.aiMime, data: analyzer.aiBase64 } }
       ]
     }],
     generationConfig: {
@@ -737,7 +773,7 @@ function buildGeminiBody() {
 }
 
 async function runAiAnalysis() {
-  if (!analyzer.imageBase64) { setAnalyzerMsg("ai", "Upload a floor-plan image first.", "warn"); return; }
+  if (!analyzer.aiBase64) { setAnalyzerMsg("ai", "Upload a floor-plan image or PDF first.", "warn"); return; }
   const key = ($("#gemini-key").value || "").trim();
   if (!key) { setAnalyzerMsg("ai", "Enter your Google Gemini API key above (it stays in your browser).", "warn"); $("#gemini-key").focus(); return; }
   saveApiKey(key);
