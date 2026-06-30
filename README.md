@@ -26,6 +26,26 @@ house map and the detail panel, so you can see every fallback option at a glance
 Each room also lists the reasoning behind the placement and practical notes
 (sleeping direction, stove orientation, drainage slope, etc.).
 
+## Floor-plan analyzer
+
+Upload a floor plan and get a **Vastu compliance report** — each room scored by
+zone (1·BEST / 2A / 2B / AVOID), the doshas found, and concrete rectifications,
+with a **Print / Save-as-PDF** button for client handoff. Two modes:
+
+- **Manual grid** (no key) — upload the plan, set which way North points, drop a
+  9-zone Vastu grid over it (auto-oriented to your North), and tag each zone with
+  the room(s) you see. The report is built from the app's built-in Vastu data.
+- **AI analysis (Google Gemini)** — Gemini reads the plan (OCR + vision),
+  detects rooms and their zones automatically, then the same engine produces the
+  report. **Bring your own key:** paste a Google Gemini API key (from
+  [Google AI Studio](https://aistudio.google.com/app/apikey)); it is stored only
+  in your browser's localStorage and the image is sent directly to Google — never
+  to this site (it has no server). If the network blocks the call, fall back to
+  Manual mode.
+
+> Privacy: in AI mode the floor-plan image is uploaded to Google's Gemini API for
+> analysis. AI detection is best-effort — verify zones against the actual drawing.
+
 ## Sections
 
 - **Rooms** — search or click a room → green/orange/red direction map.

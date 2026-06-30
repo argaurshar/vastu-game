@@ -695,6 +695,7 @@ const SITE_GUIDE = [
 const DOSHAS = [
   {
     defect: "Toilet in the North-East",
+    roomId: "toilet", zones: ["NE"],
     severity: "high",
     why: "Waste in the most sacred water zone — the classic worst defect, linked to health and financial decline.",
     remedies: [
@@ -705,6 +706,7 @@ const DOSHAS = [
   },
   {
     defect: "Kitchen in the North-East or North",
+    roomId: "kitchen", zones: ["NE", "N"],
     severity: "high",
     why: "Fire burning in the water zone creates an elemental clash — friction and drained finances.",
     remedies: [
@@ -715,6 +717,7 @@ const DOSHAS = [
   },
   {
     defect: "Kitchen in the South-West",
+    roomId: "kitchen", zones: ["SW"],
     severity: "medium",
     why: "Fire destabilises the Earth corner that should anchor the family.",
     remedies: [
@@ -724,6 +727,7 @@ const DOSHAS = [
   },
   {
     defect: "Master bedroom in the South-East",
+    roomId: "master-bedroom", zones: ["SE"],
     severity: "medium",
     why: "Sleeping in the fire zone causes short tempers, arguments and restless sleep.",
     remedies: [
@@ -733,6 +737,7 @@ const DOSHAS = [
   },
   {
     defect: "Main entrance in the South-West",
+    roomId: "main-entrance", zones: ["SW"],
     severity: "high",
     why: "Openings in the heaviest zone leak the home's stability (see padas W1, S8).",
     remedies: [
@@ -743,6 +748,7 @@ const DOSHAS = [
   },
   {
     defect: "Staircase in the centre (Brahmasthan)",
+    roomId: "staircase", zones: ["C"],
     severity: "high",
     why: "Heavy load on the home's lungs — pressure on health and harmony of the whole family.",
     remedies: [
@@ -753,6 +759,7 @@ const DOSHAS = [
   },
   {
     defect: "Staircase in the North-East",
+    roomId: "staircase", zones: ["NE"],
     severity: "high",
     why: "Mass in the corner that must remain the lightest and most open.",
     remedies: [
@@ -772,6 +779,7 @@ const DOSHAS = [
   },
   {
     defect: "Underground water tank / borewell in the South-West",
+    roomId: "water-tank-underground", zones: ["SW"],
     severity: "high",
     why: "A void below the anchor zone destabilises the entire dwelling.",
     remedies: [
@@ -781,6 +789,7 @@ const DOSHAS = [
   },
   {
     defect: "Septic tank in the North-East",
+    roomId: "septic-tank", zones: ["NE"],
     severity: "high",
     why: "Contamination of the prosperity zone — the strongest drain on health and wealth.",
     remedies: [
@@ -808,6 +817,7 @@ const DOSHAS = [
   },
   {
     defect: "Heavy storage or pillar in the Brahmasthan",
+    roomId: "store-room", zones: ["C"],
     severity: "medium",
     why: "The centre must breathe; blocking it congests the whole house's energy.",
     remedies: [
@@ -817,6 +827,7 @@ const DOSHAS = [
   },
   {
     defect: "Children sleeping in the South-West room",
+    roomId: "kids-room", zones: ["SW"],
     severity: "medium",
     why: "SW confers authority — children here tend to overrule parents and grow stubborn.",
     remedies: [
@@ -834,3 +845,58 @@ const DOSHAS = [
     ]
   }
 ];
+
+/* ============================================================
+   Gemini (Google generalist) vision config for the floor-plan
+   analyzer. The browser calls Gemini directly with a user-
+   supplied API key (stored only in localStorage). No backend.
+   ============================================================ */
+const GEMINI = {
+  model: "gemini-2.5-flash",            // editable in the UI; fast multimodal OCR/vision
+  endpoint: (model, key) =>
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+  keyUrl: "https://aistudio.google.com/app/apikey",
+  /* Strict-JSON response schema so we can parse reliably. */
+  schema: {
+    type: "object",
+    properties: {
+      detectedNorth: { type: "string", description: "Where North points on the image: up, down, left or right" },
+      rooms: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name:       { type: "string", description: "Room name as labelled or inferred (e.g. Kitchen, Master Bedroom, Toilet, Pooja)" },
+            zone:       { type: "string", description: "One of NW, N, NE, W, C, E, SW, S, SE" },
+            confidence: { type: "number", description: "0 to 1" },
+            note:       { type: "string", description: "Short observation, optional" }
+          },
+          required: ["name", "zone"]
+        }
+      },
+      notes: { type: "string", description: "Any overall observation about the plan or its orientation" }
+    },
+    required: ["rooms"]
+  },
+  prompt: (declaredNorth) =>
+`You are an expert Vastu Shastra consultant and architect reading a residential floor plan image.
+
+The user says NORTH on this drawing points: ${declaredNorth.toUpperCase()}.
+Using that as North, divide the plan into the 9 Vastu zones of a 3x3 grid:
+NW  N  NE
+ W  C  E
+SW  S  SE
+
+Tasks:
+1. Confirm or correct the North direction (look for any North arrow/compass; report what you see).
+2. Read every room label (OCR) and also infer unlabelled rooms from fixtures
+   (a stove = kitchen, a bed = bedroom, a WC/commode = toilet, a sink+shower = bathroom,
+   an idol/temple = pooja, stairs, parking, etc.).
+3. For EACH room, decide which of the 9 zones its centre falls in, accounting for the stated North.
+4. Use these canonical room names where they fit: Master Bedroom, Bedroom, Kids Room,
+   Guest Bedroom, Mandir / Pooja Room, Kitchen, Toilet, Washroom / Bathroom, Living Room,
+   Dining Room, Study Room, Home Office, Staircase, Store Room, Main Entrance, Garage,
+   Balcony, Pooja, Brahmasthan (Centre).
+
+Return ONLY JSON matching the provided schema. Do not include any prose outside the JSON.`
+};

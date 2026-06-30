@@ -355,4 +355,358 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSiteGuide();
   renderDoshas();
   initSearch();
+  initAnalyzer();
 });
+
+/* ============================================================
+   Floor-Plan Analyzer
+   Upload a plan -> AI (Gemini) or manual zone tagging ->
+   a Vastu compliance report with rectifications.
+   Reuses ROOMS, DIRECTIONS, DOSHAS, GEMINI, zoneVerdict,
+   dirLabel, findRoom, GRID_ORDER.
+   ============================================================ */
+const analyzer = {
+  mode: "manual",
+  imageDataUrl: null,
+  imageBase64: null,
+  imageMime: null,
+  north: "up",
+  manualAssign: {}   // { zone: [roomId, ...] }
+};
+
+/* --- orientation: which Vastu zone sits in each screen cell --- */
+function combineCorner(a, b) {
+  const s = new Set([a, b]);
+  if (s.has("N") && s.has("E")) return "NE";
+  if (s.has("N") && s.has("W")) return "NW";
+  if (s.has("S") && s.has("E")) return "SE";
+  if (s.has("S") && s.has("W")) return "SW";
+  return "C";
+}
+function edgeMap(north) {
+  switch (north) {
+    case "right": return { top: "W", right: "N", bottom: "E", left: "S" };
+    case "down":  return { top: "S", right: "W", bottom: "N", left: "E" };
+    case "left":  return { top: "E", right: "S", bottom: "W", left: "N" };
+    default:      return { top: "N", right: "E", bottom: "S", left: "W" }; // up
+  }
+}
+/* 9 Vastu zones in screen row-major order (top-left → bottom-right) */
+function screenZones(north) {
+  const e = edgeMap(north);
+  return [
+    combineCorner(e.top, e.left), e.top, combineCorner(e.top, e.right),
+    e.left,                       "C",   e.right,
+    combineCorner(e.bottom, e.left), e.bottom, combineCorner(e.bottom, e.right)
+  ];
+}
+
+/* ---------------- init & mode switching ---------------- */
+function initAnalyzer() {
+  const keyInput = $("#gemini-key");
+  if (keyInput) {
+    keyInput.value = loadApiKey();
+    keyInput.addEventListener("change", () => saveApiKey(keyInput.value));
+  }
+  const modelInput = $("#gemini-model");
+  if (modelInput) modelInput.placeholder = GEMINI.model;
+
+  document.querySelectorAll(".an-tab").forEach((t) =>
+    t.addEventListener("click", () => setAnalyzerMode(t.dataset.mode))
+  );
+  const file = $("#plan-file");
+  if (file) file.addEventListener("change", (e) => handleUpload(e.target.files[0]));
+
+  document.querySelectorAll("input[name='north']").forEach((r) =>
+    r.addEventListener("change", () => {
+      analyzer.north = r.value;
+      if (analyzer.imageDataUrl) renderManualGrid();
+    })
+  );
+
+  const aiBtn = $("#ai-analyze");
+  if (aiBtn) aiBtn.addEventListener("click", runAiAnalysis);
+  const manualBtn = $("#manual-report");
+  if (manualBtn) manualBtn.addEventListener("click", () => {
+    const { assignments } = collectManualAssignments();
+    if (!assignments.length) { setAnalyzerMsg("manual", "Assign at least one room to a zone first.", "warn"); return; }
+    renderReport(assignments, { north: analyzer.north, source: "manual" });
+  });
+
+  setAnalyzerMode("manual");
+}
+
+function setAnalyzerMode(mode) {
+  analyzer.mode = mode;
+  document.querySelectorAll(".an-tab").forEach((t) =>
+    t.classList.toggle("active", t.dataset.mode === mode)
+  );
+  $("#ai-panel").style.display = mode === "ai" ? "" : "none";
+  $("#manual-panel").style.display = mode === "manual" ? "" : "none";
+  if (mode === "manual" && analyzer.imageDataUrl) renderManualGrid();
+}
+
+function setAnalyzerMsg(scope, msg, kind) {
+  const el = $(scope === "ai" ? "#ai-msg" : "#manual-msg");
+  if (!el) return;
+  el.className = "an-msg " + (kind || "");
+  el.textContent = msg || "";
+}
+
+/* ---------------- upload ---------------- */
+function handleUpload(file) {
+  if (!file) return;
+  if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) {
+    setAnalyzerMsg(analyzer.mode, "Please upload a PNG, JPG or WEBP image of the plan.", "warn");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    analyzer.imageDataUrl = reader.result;
+    const m = /^data:(.+?);base64,(.*)$/.exec(reader.result);
+    analyzer.imageMime = m ? m[1] : file.type;
+    analyzer.imageBase64 = m ? m[2] : "";
+    const prev = $("#plan-preview");
+    if (prev) { prev.src = reader.result; prev.style.display = "block"; }
+    $("#ai-analyze").disabled = false;
+    $("#manual-report").disabled = false;
+    setAnalyzerMsg("ai", "", "");
+    setAnalyzerMsg("manual", "", "");
+    if (analyzer.mode === "manual") renderManualGrid();
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ---------------- manual grid + assignments ---------------- */
+function renderManualGrid() {
+  const zones = screenZones(analyzer.north);
+  const stage = $("#plan-stage");
+  if (stage) {
+    stage.innerHTML =
+      `<img class="plan-img" src="${analyzer.imageDataUrl}" alt="floor plan" />
+       <div class="plan-grid">` +
+      zones.map((z) => `<div class="plan-cell"><span>${z === "C" ? "Brahma" : z}</span></div>`).join("") +
+      `</div>`;
+  }
+
+  const roomOptions = ROOMS.map((r) => `<option value="${r.id}">${r.icon} ${r.name}</option>`).join("");
+  const list = $("#zone-assign-list");
+  list.innerHTML = zones
+    .map((z) => {
+      const d = DIRECTIONS[z];
+      const tags = (analyzer.manualAssign[z] || [])
+        .map((id) => {
+          const r = ROOMS.find((x) => x.id === id);
+          return `<span class="assign-tag" data-zone="${z}" data-id="${id}">${r.icon} ${r.name} ✕</span>`;
+        })
+        .join("");
+      return `
+        <div class="assign-row">
+          <div class="assign-zone"><b>${z === "C" ? "C" : z}</b> ${d.label}</div>
+          <select class="room-picker" data-zone="${z}">
+            <option value="">+ add room…</option>${roomOptions}
+          </select>
+          <div class="assign-tags">${tags || '<em class="dim">none</em>'}</div>
+        </div>`;
+    })
+    .join("");
+
+  list.querySelectorAll(".room-picker").forEach((sel) =>
+    sel.addEventListener("change", () => {
+      const z = sel.dataset.zone, id = sel.value;
+      if (!id) return;
+      analyzer.manualAssign[z] = analyzer.manualAssign[z] || [];
+      if (!analyzer.manualAssign[z].includes(id)) analyzer.manualAssign[z].push(id);
+      sel.value = "";
+      renderManualGrid();
+    })
+  );
+  list.querySelectorAll(".assign-tag").forEach((tag) =>
+    tag.addEventListener("click", () => {
+      const z = tag.dataset.zone, id = tag.dataset.id;
+      analyzer.manualAssign[z] = (analyzer.manualAssign[z] || []).filter((x) => x !== id);
+      renderManualGrid();
+    })
+  );
+}
+
+function collectManualAssignments() {
+  const assignments = [];
+  Object.keys(analyzer.manualAssign).forEach((zone) =>
+    (analyzer.manualAssign[zone] || []).forEach((id) => {
+      const room = ROOMS.find((r) => r.id === id);
+      if (room) assignments.push({ room, zone });
+    })
+  );
+  return { assignments };
+}
+
+/* ---------------- API key persistence ---------------- */
+function saveApiKey(k) { try { localStorage.setItem("vastu-gemini-key", k.trim()); } catch (_) {} }
+function loadApiKey() { try { return localStorage.getItem("vastu-gemini-key") || ""; } catch (_) { return ""; } }
+
+/* ---------------- Gemini request ---------------- */
+function buildGeminiBody() {
+  return {
+    contents: [{
+      parts: [
+        { text: GEMINI.prompt(analyzer.north) },
+        { inline_data: { mime_type: analyzer.imageMime, data: analyzer.imageBase64 } }
+      ]
+    }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: GEMINI.schema,
+      temperature: 0.2
+    }
+  };
+}
+
+async function runAiAnalysis() {
+  if (!analyzer.imageBase64) { setAnalyzerMsg("ai", "Upload a floor-plan image first.", "warn"); return; }
+  const key = ($("#gemini-key").value || "").trim();
+  if (!key) { setAnalyzerMsg("ai", "Enter your Google Gemini API key above (it stays in your browser).", "warn"); $("#gemini-key").focus(); return; }
+  saveApiKey(key);
+  const model = ($("#gemini-model").value || "").trim() || GEMINI.model;
+
+  setAnalyzerMsg("ai", "Analyzing the plan with Gemini… this can take 10–20s.", "busy");
+  $("#ai-analyze").disabled = true;
+  try {
+    const res = await fetch(GEMINI.endpoint(model, key), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildGeminiBody())
+    });
+    if (res.status === 400) throw new Error("Gemini rejected the request (400). Check the model name and that your key has the Generative Language API enabled.");
+    if (res.status === 401 || res.status === 403) throw new Error("Invalid or unauthorized API key (HTTP " + res.status + ").");
+    if (res.status === 429) throw new Error("Rate limit reached (429). Wait a moment and try again.");
+    if (!res.ok) throw new Error("Gemini error HTTP " + res.status + ".");
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
+    let parsed;
+    try { parsed = JSON.parse(text); }
+    catch (_) { throw new Error("Could not read the AI response as JSON. Try again, or use Manual grid mode."); }
+
+    const { assignments, warnings } = normalizeDetectedRooms(parsed.rooms || []);
+    if (!assignments.length) throw new Error("The AI did not return any recognizable rooms. Try a clearer image or Manual mode.");
+    setAnalyzerMsg("ai", "", "");
+    renderReport(assignments, {
+      north: parsed.detectedNorth || analyzer.north,
+      notes: parsed.notes,
+      warnings,
+      source: "ai"
+    });
+  } catch (err) {
+    setAnalyzerMsg("ai", err.message + (/Failed to fetch/i.test(err.message) ? " (network/CORS — try Manual grid mode)" : ""), "warn");
+  } finally {
+    $("#ai-analyze").disabled = false;
+  }
+}
+
+function normalizeDetectedRooms(detected) {
+  const valid = new Set(GRID_ORDER);
+  const assignments = [], warnings = [];
+  detected.forEach((d) => {
+    const room = findRoom(d.name || "");
+    const zone = String(d.zone || "").toUpperCase().trim();
+    if (!room) { warnings.push(`Unmatched room from plan: “${d.name}”`); return; }
+    if (!valid.has(zone)) { warnings.push(`${room.name}: unclear zone “${d.zone}”`); return; }
+    assignments.push({ room, zone, note: d.note });
+  });
+  return { assignments, warnings };
+}
+
+/* ---------------- report engine (shared) ---------------- */
+function findDosha(roomId, zone) {
+  return DOSHAS.find((d) => d.roomId === roomId && Array.isArray(d.zones) && d.zones.includes(zone));
+}
+
+function renderReport(assignments, meta) {
+  const rows = assignments.map((a) => {
+    const v = zoneVerdict(a.room, a.zone);              // {cls,label}
+    const ideal = a.room.best;
+    const ok = v.cls === "best" || v.cls === "good";
+    let rect = "";
+    if (!ok) {
+      const dosha = findDosha(a.room.id, a.zone);
+      if (dosha) rect = dosha.remedies[0];
+      else rect = `Shift ${a.room.name} towards its best zone — ${dirLabel(ideal)}. ${a.room.tips[0] || ""}`.trim();
+    }
+    return { a, v, ideal, ok, rect, dosha: ok ? null : findDosha(a.room.id, a.zone) };
+  });
+
+  const total = rows.length;
+  const good = rows.filter((r) => r.ok).length;
+  const score = total ? Math.round((good / total) * 100) : 0;
+  const band = score >= 75 ? "best" : score >= 45 ? "good" : "avoid";
+  const bandWord = score >= 75 ? "Largely Vastu-compliant" : score >= 45 ? "Partly compliant — fixable" : "Several major doshas";
+
+  const problems = rows.filter((r) => !r.ok);
+  const positives = rows.filter((r) => r.ok);
+
+  const verdictBadge = (v) =>
+    `<span class="rep-badge ${v.cls}">${v.cls === "best" ? "1 · BEST" : v.cls === "good" ? v.label : v.cls === "avoid" ? "AVOID" : "NOT IDEAL"}</span>`;
+
+  const tableRows = rows.map((r) => `
+    <tr>
+      <td>${r.a.room.icon} ${r.a.room.name}</td>
+      <td>${DIRECTIONS[r.a.zone].label}</td>
+      <td>${verdictBadge(r.v)}</td>
+      <td>${dirLabel(r.ideal)}</td>
+      <td>${r.ok ? "✓ Well placed" : (r.rect || "")}</td>
+    </tr>`).join("");
+
+  const problemCards = problems.length ? problems.map((r) => {
+    const sev = r.dosha ? r.dosha.severity : (r.v.cls === "avoid" ? "high" : "medium");
+    const why = r.dosha ? r.dosha.why : `${r.a.room.name} is out of its recommended zone, weakening the ${DIRECTIONS[r.a.zone].element} balance of the ${DIRECTIONS[r.a.zone].label}.`;
+    const rem = r.dosha ? r.dosha.remedies : [r.rect, ...r.a.room.tips.slice(0, 2)];
+    return `
+      <div class="rep-problem">
+        <div class="rep-problem-head">
+          <span class="sev ${sev}">${sev === "high" ? "HIGH" : "MEDIUM"}</span>
+          <b>${r.a.room.icon} ${r.a.room.name} in the ${DIRECTIONS[r.a.zone].label}</b>
+        </div>
+        <p class="dim">${why}</p>
+        <ul>${rem.map((x) => `<li>${x}</li>`).join("")}</ul>
+      </div>`;
+  }).join("") : `<p class="dim">No major placement doshas found — well done.</p>`;
+
+  const warnHtml = (meta.warnings && meta.warnings.length)
+    ? `<div class="rep-warn"><b>Notes from detection:</b><ul>${meta.warnings.map((w) => `<li>${w}</li>`).join("")}</ul></div>`
+    : "";
+  const aiNote = meta.notes ? `<p class="dim">AI observation: ${meta.notes}</p>` : "";
+  const sourceLabel = meta.source === "ai" ? "AI (Gemini) detection" : "Manual zone tagging";
+  const northLabel = { up: "Up", down: "Down", left: "Left", right: "Right" }[String(meta.north).toLowerCase()] || meta.north;
+
+  $("#report").innerHTML = `
+    <div class="rep-head">
+      <h3>🧭 Vastu Analysis Report</h3>
+      <button class="btn" id="print-report">🖨️ Print / Save as PDF</button>
+    </div>
+    <div class="rep-meta">
+      <span><b>Source:</b> ${sourceLabel}</span>
+      <span><b>North:</b> ${northLabel}</span>
+      <span><b>Date:</b> ${new Date().toLocaleDateString()}</span>
+    </div>
+    <div class="rep-score ${band}">
+      <div class="rep-score-num">${score}%</div>
+      <div><b>${bandWord}</b><br><span class="dim">${good} of ${total} rooms in a recommended zone (best or 2nd-best)</span></div>
+    </div>
+    ${aiNote}${warnHtml}
+    <h4 class="rep-h">Room-by-room</h4>
+    <div class="rep-table-wrap">
+      <table class="rep-table">
+        <thead><tr><th>Room</th><th>Detected zone</th><th>Verdict</th><th>Ideal (1·BEST)</th><th>Action</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+    <h4 class="rep-h">Problems &amp; rectifications</h4>
+    ${problemCards}
+    <h4 class="rep-h">Well-placed rooms</h4>
+    ${positives.length ? `<div class="rep-pos">${positives.map((r) => `<span class="assign-tag static">${r.a.room.icon} ${r.a.room.name} · ${DIRECTIONS[r.a.zone].label}</span>`).join("")}</div>` : `<p class="dim">None yet.</p>`}
+    <p class="rep-disclaimer">${meta.source === "ai" ? "AI detection is best-effort OCR/vision — verify zones against the actual drawing. " : ""}This report is generated from traditional Vastu principles for guidance; consult a qualified Vastu expert for construction decisions.</p>`;
+
+  $("#report").style.display = "block";
+  $("#print-report").addEventListener("click", () => window.print());
+  $("#report").scrollIntoView({ behavior: "smooth", block: "start" });
+}
