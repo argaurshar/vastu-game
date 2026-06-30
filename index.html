@@ -107,7 +107,16 @@
             <span class="north-hint" id="north-hint">↑ Up</span>
           </div>
         </div>
-        <img id="plan-preview" alt="floor plan preview" style="display:none" />
+        <div id="crop-wrap" class="crop-wrap" style="display:none">
+          <p class="crop-hint">📐 Drag the box to enclose <b>only the floor plan / plot</b> — leave out the
+            title block, dimension lines and blank margins. The 8 Vastu directions are mapped
+            <b>inside this box</b>.</p>
+          <div id="crop-stage" class="crop-stage"></div>
+          <div class="crop-actions">
+            <button type="button" id="crop-reset" class="mini-btn">↺ Reset box</button>
+            <button type="button" id="crop-full" class="mini-btn">⛶ Whole image</button>
+          </div>
+        </div>
       </div>
 
       <!-- AI panel -->

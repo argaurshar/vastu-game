@@ -365,13 +365,16 @@ document.addEventListener("DOMContentLoaded", () => {
    Reuses ROOMS, DIRECTIONS, DOSHAS, GEMINI, zoneVerdict,
    dirLabel, findRoom, GRID_ORDER.
    ============================================================ */
+const DEFAULT_CROP = { x: 0.12, y: 0.06, w: 0.76, h: 0.84 };
 const analyzer = {
-  imageDataUrl: null,   // raster of the plan (used for the report's marked-up image)
-  pdfFile: null,        // kept so the report can rasterise a PDF when needed
-  aiBase64: null,       // bytes sent to Gemini (a PDF is sent as-is)
+  imageDataUrl: null,    // the full rendered plan (shown in the crop UI)
+  reportImageUrl: null,  // the CROPPED plan that is actually analysed & marked up
+  crop: { ...DEFAULT_CROP }, // fraction {x,y,w,h} of the image = the actual plot
+  aiBase64: null,        // bytes sent to Gemini (the cropped plan image)
   aiMime: null,
   north: "up"
 };
+function clampN(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 /* --- orientation: which Vastu zone sits in each screen cell ---
    Supports all 8 compass directions for "where North points", including the
@@ -454,6 +457,10 @@ function initAnalyzer() {
 
   const aiBtn = $("#ai-analyze");
   if (aiBtn) aiBtn.addEventListener("click", runAiAnalysis);
+  const cropReset = $("#crop-reset");
+  if (cropReset) cropReset.addEventListener("click", () => { analyzer.crop = { ...DEFAULT_CROP }; positionCropRect(); });
+  const cropFull = $("#crop-full");
+  if (cropFull) cropFull.addEventListener("click", () => { analyzer.crop = { x: 0, y: 0, w: 1, h: 1 }; positionCropRect(); });
 
   /* warm the local PDF library in the background so PDF uploads feel instant */
   ensurePdfJs().catch(() => {});
@@ -476,17 +483,8 @@ function readDataUrl(file) {
   });
 }
 
-function showPreview() {
-  const prev = $("#plan-preview");
-  if (prev) {
-    if (analyzer.imageDataUrl) { prev.src = analyzer.imageDataUrl; prev.style.display = "block"; }
-    else { prev.removeAttribute("src"); prev.style.display = "none"; }
-  }
-}
-
-/* Read bytes once and enable the buttons immediately. A PDF is sent to
-   Gemini as-is (it reads PDFs natively); the raster preview for manual
-   tagging is rendered in the background and never blocks the buttons. */
+/* Render to an image, then let the user mark the rectangle that is the actual
+   floor plan/plot. Only that rectangle is analysed and zoned. */
 async function handleUpload(file) {
   if (!file) return;
   const isPdf = file.type === "application/pdf";
@@ -495,31 +493,101 @@ async function handleUpload(file) {
     setAnalyzerMsg("ai", "Please upload a PNG, JPG, WEBP or PDF of the plan.", "warn");
     return;
   }
+  analyzer.reportImageUrl = null;
+  analyzer.crop = { ...DEFAULT_CROP };
+  $("#ai-analyze").disabled = true;
 
-  let dataUrl;
-  try { dataUrl = await readDataUrl(file); }
-  catch (_) { setAnalyzerMsg("ai", "Could not read the file.", "warn"); return; }
-  const mm = /^data:(.+?);base64,(.*)$/.exec(dataUrl);
-  analyzer.aiMime = mm ? mm[1] : file.type;
-  analyzer.aiBase64 = mm ? mm[2] : "";
-  $("#ai-analyze").disabled = false;
-
-  if (isImg) {
-    analyzer.pdfFile = null;
-    analyzer.imageDataUrl = dataUrl;
-    setAnalyzerMsg("ai", "", "");
-    showPreview();
+  try {
+    if (isImg) {
+      analyzer.imageDataUrl = await readDataUrl(file);
+    } else {
+      setAnalyzerMsg("ai", "Rendering the plan…", "busy");
+      analyzer.imageDataUrl = await pdfToImage(file);
+    }
+  } catch (err) {
+    setAnalyzerMsg("ai", "Could not open the file (" + (err.message || "error") + "). Try a PNG/JPG export of the plan.", "warn");
     return;
   }
 
-  // PDF: ready for AI instantly — Gemini reads the PDF directly. The raster is
-  // only produced later, for the report's marked-up plan.
-  analyzer.pdfFile = file;
-  analyzer.imageDataUrl = null;
-  showPreview();
-  setAnalyzerMsg("ai", file.size > 18 * 1024 * 1024
-    ? `PDF “${file.name}” ready, but large — if Gemini returns 400, export a smaller PDF or a PNG.`
-    : `PDF “${file.name}” ready — click “Analyze with Gemini”.`, file.size > 18 * 1024 * 1024 ? "warn" : "");
+  setAnalyzerMsg("ai", "", "");
+  renderCropStage();
+  $("#ai-analyze").disabled = false;
+}
+
+/* ---- crop rectangle: mark only the actual floor plan / plot ---- */
+function renderCropStage() {
+  const wrap = $("#crop-wrap"), stage = $("#crop-stage");
+  if (!stage || !analyzer.imageDataUrl) return;
+  if (wrap) wrap.style.display = "";
+  stage.innerHTML =
+    `<img class="crop-img" src="${analyzer.imageDataUrl}" alt="uploaded plan" />
+     <div class="crop-rect" id="crop-rect">
+       <span class="crop-h tl" data-h="tl"></span><span class="crop-h tr" data-h="tr"></span>
+       <span class="crop-h bl" data-h="bl"></span><span class="crop-h br" data-h="br"></span>
+     </div>`;
+  const img = stage.querySelector(".crop-img");
+  if (img.complete) positionCropRect(); else img.addEventListener("load", positionCropRect);
+  attachCropHandlers();
+}
+
+function positionCropRect() {
+  const r = $("#crop-rect"); if (!r) return;
+  const c = analyzer.crop;
+  r.style.left = (c.x * 100) + "%"; r.style.top = (c.y * 100) + "%";
+  r.style.width = (c.w * 100) + "%"; r.style.height = (c.h * 100) + "%";
+}
+
+function attachCropHandlers() {
+  const stage = $("#crop-stage");
+  const img = stage.querySelector(".crop-img");
+  const rect = $("#crop-rect");
+  if (!img || !rect) return;
+  let mode = null, sx = 0, sy = 0, start = null;
+  const onMove = (e) => {
+    if (!mode) return;
+    const b = img.getBoundingClientRect();
+    const dx = (e.clientX - sx) / b.width, dy = (e.clientY - sy) / b.height;
+    let { x, y, w, h } = start;
+    if (mode === "move") { x = clampN(x + dx, 0, 1 - w); y = clampN(y + dy, 0, 1 - h); }
+    else {
+      if (mode.includes("l")) { const nx = clampN(x + dx, 0, x + w - 0.05); w = w + (x - nx); x = nx; }
+      if (mode.includes("r")) { w = clampN(w + dx, 0.05, 1 - x); }
+      if (mode.includes("t")) { const ny = clampN(y + dy, 0, y + h - 0.05); h = h + (y - ny); y = ny; }
+      if (mode.includes("b")) { h = clampN(h + dy, 0.05, 1 - y); }
+    }
+    analyzer.crop = { x, y, w, h };
+    positionCropRect();
+  };
+  const onUp = () => { mode = null; window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+  const startDrag = (m, e) => {
+    mode = m; sx = e.clientX; sy = e.clientY; start = { ...analyzer.crop };
+    e.preventDefault(); e.stopPropagation();
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+  rect.addEventListener("pointerdown", (e) => startDrag("move", e));
+  rect.querySelectorAll(".crop-h").forEach((hd) => hd.addEventListener("pointerdown", (e) => startDrag(hd.dataset.h, e)));
+}
+
+/* crop the source image to the marked rectangle -> JPEG data URL */
+function cropToDataUrl() {
+  return new Promise((resolve) => {
+    if (!analyzer.imageDataUrl) { resolve(null); return; }
+    const im = new Image();
+    im.onload = () => {
+      const c = analyzer.crop || DEFAULT_CROP;
+      const sx = Math.max(0, Math.round(c.x * im.naturalWidth));
+      const sy = Math.max(0, Math.round(c.y * im.naturalHeight));
+      const sw = Math.max(1, Math.round(c.w * im.naturalWidth));
+      const sh = Math.max(1, Math.round(c.h * im.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = sw; canvas.height = sh;
+      canvas.getContext("2d").drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh);
+      resolve(canvas.toDataURL("image/jpeg", 0.92));
+    };
+    im.onerror = () => resolve(null);
+    im.src = analyzer.imageDataUrl;
+  });
 }
 
 /* lazy-load pdf.js (UMD) once, then render page 1 to a PNG data URL */
@@ -710,14 +778,24 @@ function syncModelDropdown(model) {
 }
 
 async function runAiAnalysis() {
-  if (!analyzer.aiBase64) { setAnalyzerMsg("ai", "Upload a floor-plan image or PDF first.", "warn"); return; }
+  if (!analyzer.imageDataUrl) { setAnalyzerMsg("ai", "Upload a floor-plan image or PDF first.", "warn"); return; }
   const key = ($("#gemini-key").value || "").trim();
   if (!key) { setAnalyzerMsg("ai", "Enter your Google Gemini API key above (it stays in your browser).", "warn"); $("#gemini-key").focus(); return; }
   saveApiKey(key);
   const model = $("#gemini-model").value || GEMINI.model;
   saveModel(model);
 
-  setAiBusy(true, "Analyzing the plan with Gemini… this can take 10–20s.");
+  // analyse ONLY the marked rectangle (the real plan), not the whole sheet
+  const cropped = await cropToDataUrl();
+  if (cropped) {
+    const cm = /^data:(.+?);base64,(.*)$/.exec(cropped);
+    analyzer.aiMime = cm ? cm[1] : "image/jpeg";
+    analyzer.aiBase64 = cm ? cm[2] : "";
+    analyzer.reportImageUrl = cropped;
+  }
+  if (!analyzer.aiBase64) { setAiBusy(false); setAnalyzerMsg("ai", "Could not prepare the cropped plan. Try re-uploading.", "warn"); return; }
+
+  setAiBusy(true, "Analyzing the marked plan with Gemini… this can take 10–20s.");
   try {
     const result = await callWithRetry(model, key);
     const res = result.res;
@@ -819,12 +897,7 @@ function roundRectPath(ctx, x, y, w, h, r) {
 }
 
 async function getPlanImageForReport() {
-  if (analyzer.imageDataUrl) return analyzer.imageDataUrl;
-  if (analyzer.pdfFile) {
-    try { const img = await pdfToImage(analyzer.pdfFile); analyzer.imageDataUrl = img; return img; }
-    catch (_) { return null; }
-  }
-  return null;
+  return analyzer.reportImageUrl || analyzer.imageDataUrl || null;
 }
 
 /* Draw the consultant-style marked-up plan: green ✓ pills for kept rooms,

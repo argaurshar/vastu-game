@@ -896,11 +896,15 @@ const GEMINI = {
       "down": "the bottom of the image", "down-left": "the bottom-left corner",
       "left": "the left edge", "up-left": "the top-left corner"
     }[north] || "the top of the image";
-    return `You are an expert Vastu Shastra consultant and architect reading a residential floor plan image.
+    return `You are an expert Vastu Shastra consultant and architect reading a residential floor plan.
+
+This image has already been CROPPED to just the building footprint / plot — treat the FULL extent
+of this image as the building outline. Fit the 9-zone Vastu grid to the edges of THIS image (the
+plan fills it); there is no surrounding sheet, title block or margin to ignore.
 
 On this drawing, geographic NORTH is towards ${where}. This may be a DIAGONAL direction — respect it exactly; do not assume North is up.
 
-Using that true North, mentally overlay the 9-zone Vastu grid aligned to the compass (not to the page edges):
+Using that true North, overlay the 3x3 (9-zone) Vastu grid across the whole image:
 N (Uttar), NE (Ishan), E (Purva), SE (Agneya), S (Dakshin), SW (Nairutya), W (Paschim), NW (Vayavya), around the centre C (Brahmasthan).
 
 Tasks:
