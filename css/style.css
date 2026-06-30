@@ -613,3 +613,42 @@ section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
 }
 .north-center { display: flex; align-items: center; justify-content: center; font-size: 0.95rem; opacity: 0.6; }
 .north-hint { font-size: 0.82rem; color: var(--accent); font-weight: 700; }
+
+/* ---- Analyzer overlay: rotation, clickable cells, mini-icons, popover ---- */
+.plan-stage.clip { overflow: hidden; }
+.plan-grid { transform-origin: center center; }
+.plan-cell {
+  pointer-events: auto;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, box-shadow 0.12s;
+}
+.plan-cell:hover { background: rgba(245, 185, 66, 0.16); box-shadow: inset 0 0 0 2px var(--accent); }
+.plan-cell-label {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 1px;
+  background: rgba(15, 18, 32, 0.78); border-radius: 6px; padding: 2px 5px;
+  transform-origin: center center;
+}
+.plan-cell-label b { color: var(--accent); font-size: 0.62rem; font-weight: 800; }
+.plan-cell-label em { font-style: normal; font-size: 0.8rem; line-height: 1; }
+
+#cell-menu {
+  position: absolute; z-index: 40; width: 220px;
+  background: var(--bg-card-2); border: 1px solid var(--accent);
+  border-radius: 10px; box-shadow: var(--shadow); overflow: hidden;
+}
+.cell-menu-head {
+  font-size: 0.78rem; color: var(--text-dim); padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--neutral); display: flex; align-items: center; gap: 0.3rem;
+}
+.cell-menu-head b { color: var(--text); }
+.cell-menu-close { margin-left: auto; cursor: pointer; padding: 0 0.2rem; }
+.cell-menu-close:hover { color: var(--accent); }
+.cell-menu-list { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; }
+.cell-menu-item {
+  text-align: left; background: none; border: none; color: var(--text);
+  padding: 0.4rem 0.6rem; font-size: 0.82rem; cursor: pointer; border-bottom: 1px solid rgba(58,65,99,0.4);
+}
+.cell-menu-item:hover { background: rgba(245, 185, 66, 0.12); }
+.cell-menu-item.on { color: var(--green); font-weight: 700; }

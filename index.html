@@ -93,8 +93,8 @@
       <div class="card">
         <div class="upload-row">
           <label class="upload-btn">
-            📤 Upload floor plan (PNG / JPG)
-            <input id="plan-file" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+            📤 Upload floor plan (PNG / JPG / PDF)
+            <input id="plan-file" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" hidden />
           </label>
           <div class="north-pick">
             <span class="north-label">North on the plan points:</span>
@@ -140,8 +140,9 @@
 
       <!-- Manual panel -->
       <div id="manual-panel" class="card analyze-panel">
-        <p class="an-note">Upload a plan, set which way North points, then assign each zone the room(s)
-          you see on the drawing. The grid below is oriented to your chosen North.</p>
+        <p class="an-note">Upload a plan, set which way North points, then assign rooms — either click a
+          zone on the plan overlay, or use the dropdowns below. The grid is oriented to your chosen
+          North (diagonals show a true rotated grid).</p>
         <div id="plan-stage" class="plan-stage"></div>
         <div id="zone-assign-list" class="zone-assign-list"></div>
         <button class="btn" id="manual-report" disabled>Generate Vastu report</button>

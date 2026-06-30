@@ -477,40 +477,111 @@ function setAnalyzerMsg(scope, msg, kind) {
   el.textContent = msg || "";
 }
 
-/* ---------------- upload ---------------- */
+/* ---------------- upload (image or PDF) ---------------- */
+function setUploadedImage(dataUrl, mimeFallback) {
+  analyzer.imageDataUrl = dataUrl;
+  const m = /^data:(.+?);base64,(.*)$/.exec(dataUrl);
+  analyzer.imageMime = m ? m[1] : (mimeFallback || "image/png");
+  analyzer.imageBase64 = m ? m[2] : "";
+  const prev = $("#plan-preview");
+  if (prev) { prev.src = dataUrl; prev.style.display = "block"; }
+  $("#ai-analyze").disabled = false;
+  $("#manual-report").disabled = false;
+  setAnalyzerMsg("ai", "", "");
+  setAnalyzerMsg("manual", "", "");
+  if (analyzer.mode === "manual") renderManualGrid();
+}
+
 function handleUpload(file) {
   if (!file) return;
+  if (file.type === "application/pdf") {
+    setAnalyzerMsg(analyzer.mode, "Rendering the first page of the PDF…", "busy");
+    pdfToImage(file)
+      .then((dataUrl) => setUploadedImage(dataUrl, "image/png"))
+      .catch((err) => setAnalyzerMsg(analyzer.mode,
+        "Couldn't render the PDF (" + err.message + "). PDF rendering needs an internet connection — upload a PNG/JPG instead.", "warn"));
+    return;
+  }
   if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) {
-    setAnalyzerMsg(analyzer.mode, "Please upload a PNG, JPG or WEBP image of the plan.", "warn");
+    setAnalyzerMsg(analyzer.mode, "Please upload a PNG, JPG, WEBP or PDF of the plan.", "warn");
     return;
   }
   const reader = new FileReader();
-  reader.onload = () => {
-    analyzer.imageDataUrl = reader.result;
-    const m = /^data:(.+?);base64,(.*)$/.exec(reader.result);
-    analyzer.imageMime = m ? m[1] : file.type;
-    analyzer.imageBase64 = m ? m[2] : "";
-    const prev = $("#plan-preview");
-    if (prev) { prev.src = reader.result; prev.style.display = "block"; }
-    $("#ai-analyze").disabled = false;
-    $("#manual-report").disabled = false;
-    setAnalyzerMsg("ai", "", "");
-    setAnalyzerMsg("manual", "", "");
-    if (analyzer.mode === "manual") renderManualGrid();
-  };
+  reader.onload = () => setUploadedImage(reader.result, file.type);
   reader.readAsDataURL(file);
 }
 
+/* lazy-load pdf.js (UMD) once, then render page 1 to a PNG data URL */
+let pdfJsReady = null;
+function ensurePdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (pdfJsReady) return pdfJsReady;
+  pdfJsReady = new Promise((resolve, reject) => {
+    const base = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174";
+    const s = document.createElement("script");
+    s.src = base + "/pdf.min.js";
+    s.onload = () => {
+      if (!window.pdfjsLib) { reject(new Error("pdf.js failed to initialise")); return; }
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + "/pdf.worker.min.js";
+      resolve(window.pdfjsLib);
+    };
+    s.onerror = () => reject(new Error("could not load the PDF library"));
+    document.head.appendChild(s);
+  });
+  return pdfJsReady;
+}
+async function pdfToImage(file) {
+  const pdfjsLib = await ensurePdfJs();
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 2 });
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+  return canvas.toDataURL("image/png");
+}
+
 /* ---------------- manual grid + assignments ---------------- */
+/* screen rotation per North; diagonals get a true 45°-rotated grid */
+const NORTH_ANGLE = {
+  "up": 0, "up-right": 45, "right": 90, "down-right": 135,
+  "down": 180, "down-left": 225, "left": 270, "up-left": 315
+};
+
+function assignedIcons(zone) {
+  return (analyzer.manualAssign[zone] || [])
+    .map((id) => { const r = ROOMS.find((x) => x.id === id); return r ? r.icon : ""; })
+    .join("");
+}
+
 function renderManualGrid() {
-  const zones = screenZones(analyzer.north);
+  const angle = NORTH_ANGLE[analyzer.north] || 0;
+  const diagonal = angle % 90 !== 0;
+  /* diagonal: render canonical zones and rotate the whole grid to true North.
+     cardinal: keep the verified relabel (no rotation). */
+  const zones = diagonal ? GRID_ORDER : screenZones(analyzer.north);
+
   const stage = $("#plan-stage");
   if (stage) {
+    const gridStyle = diagonal ? `transform:rotate(${angle}deg);` : "";
+    const labelStyle = diagonal ? `transform:rotate(${-angle}deg);` : "";
+    stage.classList.toggle("clip", diagonal);
     stage.innerHTML =
       `<img class="plan-img" src="${analyzer.imageDataUrl}" alt="floor plan" />
-       <div class="plan-grid">` +
-      zones.map((z) => `<div class="plan-cell"><span>${z === "C" ? "Brahma" : z}</span></div>`).join("") +
+       <div class="plan-grid" style="${gridStyle}">` +
+      zones.map((z) =>
+        `<div class="plan-cell" data-zone="${z}" title="Click to assign rooms to ${DIRECTIONS[z].label}">
+           <span class="plan-cell-label" style="${labelStyle}">
+             <b>${z === "C" ? "Brahma" : z}</b>
+             <em>${assignedIcons(z)}</em>
+           </span>
+         </div>`).join("") +
       `</div>`;
+    stage.querySelectorAll(".plan-cell").forEach((cell) =>
+      cell.addEventListener("click", (e) => { e.stopPropagation(); openCellMenu(cell.dataset.zone, cell); })
+    );
   }
 
   const roomOptions = ROOMS.map((r) => `<option value="${r.id}">${r.icon} ${r.name}</option>`).join("");
@@ -537,21 +608,74 @@ function renderManualGrid() {
 
   list.querySelectorAll(".room-picker").forEach((sel) =>
     sel.addEventListener("change", () => {
-      const z = sel.dataset.zone, id = sel.value;
-      if (!id) return;
-      analyzer.manualAssign[z] = analyzer.manualAssign[z] || [];
-      if (!analyzer.manualAssign[z].includes(id)) analyzer.manualAssign[z].push(id);
+      addRoomToZone(sel.dataset.zone, sel.value);
       sel.value = "";
-      renderManualGrid();
     })
   );
   list.querySelectorAll(".assign-tag").forEach((tag) =>
-    tag.addEventListener("click", () => {
-      const z = tag.dataset.zone, id = tag.dataset.id;
-      analyzer.manualAssign[z] = (analyzer.manualAssign[z] || []).filter((x) => x !== id);
-      renderManualGrid();
+    tag.addEventListener("click", () => removeRoomFromZone(tag.dataset.zone, tag.dataset.id))
+  );
+}
+
+function addRoomToZone(zone, id) {
+  if (!id) return;
+  analyzer.manualAssign[zone] = analyzer.manualAssign[zone] || [];
+  if (!analyzer.manualAssign[zone].includes(id)) analyzer.manualAssign[zone].push(id);
+  renderManualGrid();
+}
+function removeRoomFromZone(zone, id) {
+  analyzer.manualAssign[zone] = (analyzer.manualAssign[zone] || []).filter((x) => x !== id);
+  renderManualGrid();
+}
+
+/* ---- click-to-assign popover over an overlay cell ---- */
+function closeCellMenu() {
+  const m = $("#cell-menu");
+  if (m) m.remove();
+  document.removeEventListener("click", closeCellMenu);
+  document.removeEventListener("keydown", onCellMenuKey);
+}
+function onCellMenuKey(e) { if (e.key === "Escape") closeCellMenu(); }
+
+function openCellMenu(zone, cell) {
+  closeCellMenu();
+  const stage = $("#plan-stage");
+  const sr = stage.getBoundingClientRect();
+  const cr = cell.getBoundingClientRect();
+  const left = Math.max(4, Math.min(cr.left - sr.left + cr.width / 2 - 110, sr.width - 224));
+  const top = Math.max(4, cr.top - sr.top + cr.height / 2 - 10);
+
+  const assigned = analyzer.manualAssign[zone] || [];
+  const menu = document.createElement("div");
+  menu.id = "cell-menu";
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
+  menu.innerHTML =
+    `<div class="cell-menu-head"><b>${DIRECTIONS[zone].label}</b> — tap a room to toggle
+       <span class="cell-menu-close" title="Close">✕</span></div>
+     <div class="cell-menu-list">` +
+    ROOMS.map((r) => {
+      const on = assigned.includes(r.id);
+      return `<button class="cell-menu-item ${on ? "on" : ""}" data-id="${r.id}">${r.icon} ${r.name}${on ? " ✓" : ""}</button>`;
+    }).join("") +
+    `</div>`;
+  stage.appendChild(menu);
+
+  menu.addEventListener("click", (e) => e.stopPropagation());
+  menu.querySelector(".cell-menu-close").addEventListener("click", closeCellMenu);
+  menu.querySelectorAll(".cell-menu-item").forEach((b) =>
+    b.addEventListener("click", () => {
+      const id = b.dataset.id;
+      if ((analyzer.manualAssign[zone] || []).includes(id)) removeRoomFromZone(zone, id);
+      else addRoomToZone(zone, id);
+      const stillOpen = $("#cell-menu");           // renderManualGrid wiped the stage
+      if (!stillOpen) { const c = $(`.plan-cell[data-zone="${zone}"]`); if (c) openCellMenu(zone, c); }
     })
   );
+  setTimeout(() => {
+    document.addEventListener("click", closeCellMenu);
+    document.addEventListener("keydown", onCellMenuKey);
+  }, 0);
 }
 
 function collectManualAssignments() {
