@@ -458,6 +458,8 @@ function initAnalyzer() {
   });
 
   setAnalyzerMode("manual");
+  /* warm the local PDF library in the background so PDF uploads feel instant */
+  ensurePdfJs().catch(() => {});
 }
 
 function setAnalyzerMode(mode) {
@@ -517,15 +519,17 @@ function ensurePdfJs() {
   if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
   if (pdfJsReady) return pdfJsReady;
   pdfJsReady = new Promise((resolve, reject) => {
-    const base = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174";
+    const base = "vendor/pdfjs";   // bundled locally — no CDN, works offline & instantly
     const s = document.createElement("script");
     s.src = base + "/pdf.min.js";
+    const timer = setTimeout(() => reject(new Error("PDF library timed out")), 15000);
     s.onload = () => {
+      clearTimeout(timer);
       if (!window.pdfjsLib) { reject(new Error("pdf.js failed to initialise")); return; }
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + "/pdf.worker.min.js";
       resolve(window.pdfjsLib);
     };
-    s.onerror = () => reject(new Error("could not load the PDF library"));
+    s.onerror = () => { clearTimeout(timer); reject(new Error("could not load the PDF library")); };
     document.head.appendChild(s);
   });
   return pdfJsReady;
