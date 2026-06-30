@@ -687,3 +687,15 @@ section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
   border-radius: 50%; background: var(--accent-2); animation: ai-pulse 0.9s ease-in-out infinite;
 }
 @keyframes ai-pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+/* ---- live model loader ---- */
+.model-actions { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin: 0.7rem 0 0.2rem; }
+.mini-btn {
+  background: var(--bg-card-2); color: var(--text); border: 1px solid var(--neutral);
+  border-radius: 8px; padding: 0.4rem 0.8rem; font-size: 0.8rem; cursor: pointer;
+}
+.mini-btn:hover { border-color: var(--accent); }
+.model-status { font-size: 0.78rem; color: var(--text-dim); }
+.model-status.ok { color: var(--green); }
+.model-status.warn { color: var(--orange); }
+.model-status.busy { color: var(--accent-2); }

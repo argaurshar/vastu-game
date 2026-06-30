@@ -432,10 +432,15 @@ function initAnalyzer() {
   }
   const modelSel = $("#gemini-model");
   if (modelSel) {
-    modelSel.innerHTML = GEMINI.models.map((m) => `<option value="${m.id}">${m.label}</option>`).join("");
-    modelSel.value = loadModel() || GEMINI.model;
+    populateModelDropdown(GEMINI.models, loadModel() || GEMINI.model);   // predefined fallback
     modelSel.addEventListener("change", () => saveModel(modelSel.value));
   }
+  if (keyInput) {
+    keyInput.addEventListener("change", () => { if (keyInput.value.trim()) loadModelsFromKey(); });
+    if (keyInput.value.trim()) loadModelsFromKey();   // a saved key -> load its real models now
+  }
+  const loadBtn = $("#load-models");
+  if (loadBtn) loadBtn.addEventListener("click", loadModelsFromKey);
 
   document.querySelectorAll(".an-tab").forEach((t) =>
     t.addEventListener("click", () => setAnalyzerMode(t.dataset.mode))
@@ -792,6 +797,64 @@ function buildGeminiBody() {
   };
 }
 
+/* ----- live model list from the user\'s key (ListModels) ----- */
+function modelPriority(id) {
+  // prefer high-free-limit, vision-capable, current models
+  if (/2\.5-flash-lite/.test(id)) return 0;
+  if (/2\.0-flash-lite/.test(id)) return 1;
+  if (/2\.5-flash(?!-lite)/.test(id)) return 2;
+  if (/2\.0-flash(?!-lite)/.test(id)) return 3;
+  if (/2\.5-pro/.test(id)) return 5;
+  if (/flash/.test(id)) return 4;
+  return 6;
+}
+async function fetchAvailableModels(key) {
+  const res = await fetch(GEMINI.listEndpoint(key));
+  if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error("HTTP " + res.status + (apiErrorMessage(t) ? " — " + apiErrorMessage(t) : "")); }
+  const data = await res.json();
+  return (data.models || [])
+    .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+    .filter((m) => /models\/gemini/i.test(m.name || ""))
+    .filter((m) => !/embedding|aqa|imagen|image-generation|-tts|-live|vision-latest/i.test(m.name || ""))
+    .map((m) => ({ id: (m.name || "").replace(/^models\//, ""), label: (m.displayName || (m.name || "").replace(/^models\//, "")) }))
+    .sort((x, y) => modelPriority(x.id) - modelPriority(y.id) || x.id.localeCompare(y.id));
+}
+function populateModelDropdown(models, selected) {
+  const sel = $("#gemini-model");
+  if (!sel || !models.length) return;
+  sel.innerHTML = models.map((m) => `<option value="${m.id}">${m.label}</option>`).join("");
+  const want = selected && models.some((m) => m.id === selected) ? selected : models[0].id;
+  sel.value = want;
+  saveModel(sel.value);
+}
+async function loadModelsFromKey() {
+  const key = ($("#gemini-key").value || "").trim();
+  const status = $("#model-status");
+  if (!key) { if (status) { status.textContent = "Enter your key first to load its models."; status.className = "model-status warn"; } return; }
+  saveApiKey(key);
+  if (status) { status.textContent = "Loading models your key can use…"; status.className = "model-status busy"; }
+  try {
+    const models = await fetchAvailableModels(key);
+    if (!models.length) throw new Error("no generateContent models returned");
+    populateModelDropdown(models, loadModel() || GEMINI.model);
+    if (status) { status.textContent = `✓ ${models.length} models available to this key — pick any.`; status.className = "model-status ok"; }
+  } catch (err) {
+    if (status) { status.textContent = "Couldn't load models (" + err.message + "). Using the built-in list.", status.className = "model-status warn"; }
+  }
+}
+
+/* classify a 429 so we can tell the user if waiting will help */
+function parse429Kind(bodyText) {
+  try {
+    const det = JSON.parse(bodyText)?.error?.details || [];
+    const qf = det.find((d) => /QuotaFailure/.test(d["@type"] || ""));
+    const id = ((qf?.violations?.[0]?.quotaId) || (qf?.violations?.[0]?.quotaMetric) || "") + "";
+    if (/per[_-]?day|daily|requests.*day/i.test(id)) return "day";
+    if (/per[_-]?minute|requests.*minute/i.test(id)) return "minute";
+  } catch (_) {}
+  return null;
+}
+
 /* button spinner + animated progress while the model thinks */
 function setAiBusy(on, msg) {
   const btn = $("#ai-analyze");
@@ -805,25 +868,35 @@ function setAiBusy(on, msg) {
   if (msg) setAnalyzerMsg("ai", msg, "busy");
 }
 
-/* one timed retry on the same model, then fall back to the highest-limit model */
+/* On 429: one timed retry on the chosen model, then try every OTHER model in
+   the dropdown — each model has its own quota, so another may succeed. */
 async function callWithRetry(model, key) {
-  let res = await geminiRequest(model, key);
-  if (res.status !== 429) return { res, model };
+  const all = Array.from(document.querySelectorAll("#gemini-model option")).map((o) => o.value);
+  const candidates = [model, ...all.filter((m) => m !== model)];
+  let res, used = model, lastBody = "";
 
-  const delay = Math.min(parseRetryDelay(await res.text()) || 15, 25);
-  for (let s = delay; s > 0; s--) { setAiBusy(true, `Rate limit on ${model}. Auto-retrying in ${s}s…`); await sleep(1000); }
-  res = await geminiRequest(model, key);
-  if (res.status !== 429) return { res, model };
+  for (let i = 0; i < candidates.length; i++) {
+    used = candidates[i];
+    if (i > 0) setAiBusy(true, `Rate-limited — trying ${used}…`);
+    res = await geminiRequest(used, key);
+    if (res.status !== 429) { syncModelDropdown(used); return { res, model: used, lastBody }; }
+    lastBody = await res.text().catch(() => "");
 
-  const fallback = "gemini-2.5-flash-lite";
-  if (model !== fallback) {
-    setAiBusy(true, `Still limited on ${model} — switching to Flash-Lite (higher free limits)…`);
-    const sel = $("#gemini-model");
-    if (sel) { sel.value = fallback; saveModel(fallback); }
-    res = await geminiRequest(fallback, key);
-    return { res, model: fallback };
+    if (i === 0) {   // give the preferred model one timed retry before moving on
+      const delay = Math.min(parseRetryDelay(lastBody) || 12, 20);
+      for (let s = delay; s > 0; s--) { setAiBusy(true, `Rate limit on ${used}. Retrying in ${s}s…`); await sleep(1000); }
+      res = await geminiRequest(used, key);
+      if (res.status !== 429) { syncModelDropdown(used); return { res, model: used, lastBody }; }
+      lastBody = await res.text().catch(() => "");
+    }
   }
-  return { res, model };
+  return { res, model: used, lastBody };   // every model rate-limited
+}
+function syncModelDropdown(model) {
+  const sel = $("#gemini-model");
+  if (sel && sel.value !== model && Array.from(sel.options).some((o) => o.value === model)) {
+    sel.value = model; saveModel(model);
+  }
 }
 
 async function runAiAnalysis() {
@@ -840,10 +913,15 @@ async function runAiAnalysis() {
     const res = result.res;
     const usedModel = result.model;
     if (!res.ok) {
-      const t = await res.text().catch(() => "");
+      const t = result.lastBody || await res.text().catch(() => "");
       const apiMsg = apiErrorMessage(t);
-      if (res.status === 429)
-        throw new Error(`Still rate-limited on ${usedModel}. The free-tier quota is used up — wait a minute, or enable billing in Google AI Studio. (Already tried Flash-Lite automatically.)`);
+      if (res.status === 429) {
+        const kind = parse429Kind(t);
+        const which = kind === "day" ? "the per-DAY free-tier limit — it resets after ~24h"
+                    : kind === "minute" ? "the per-MINUTE limit — wait ~60s and retry"
+                    : "the free-tier quota";
+        throw new Error(`All available models are rate-limited (429). Your key has hit ${which}. Options: wait and retry, use a different Google account/key, or enable billing in Google AI Studio. (Tried every model in the dropdown automatically.)`);
+      }
       if (res.status === 400)
         throw new Error("Gemini rejected the request (400)" + (apiMsg ? ": " + apiMsg : ". Check the model and that the Generative Language API is enabled."));
       if (res.status === 401 || res.status === 403)

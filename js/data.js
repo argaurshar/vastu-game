@@ -864,6 +864,8 @@ const GEMINI = {
   ],
   endpoint: (model, key) =>
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+  listEndpoint: (key) =>
+    `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`,
   keyUrl: "https://aistudio.google.com/app/apikey",
   /* Strict-JSON response schema so we can parse reliably. */
   schema: {
