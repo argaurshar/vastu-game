@@ -374,31 +374,51 @@ const analyzer = {
   manualAssign: {}   // { zone: [roomId, ...] }
 };
 
-/* --- orientation: which Vastu zone sits in each screen cell --- */
-function combineCorner(a, b) {
-  const s = new Set([a, b]);
-  if (s.has("N") && s.has("E")) return "NE";
-  if (s.has("N") && s.has("W")) return "NW";
-  if (s.has("S") && s.has("E")) return "SE";
-  if (s.has("S") && s.has("W")) return "SW";
-  return "C";
+/* --- orientation: which Vastu zone sits in each screen cell ---
+   Supports all 8 compass directions for "where North points", including the
+   four diagonals. The 8 outer Vastu zones form a clockwise ring (N..NW); the
+   screen's 8 perimeter cells form a clockwise ring from top-centre. Placing N
+   at the screen position the user chose and walking both rings together gives
+   the zone for every cell. For diagonal North this naturally puts the cardinal
+   directions on the screen corners and the inter-cardinals on the edges. */
+const VASTU_RING = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]; // clockwise
+const NORTH_RING_INDEX = {
+  "up": 0, "up-right": 1, "right": 2, "down-right": 3,
+  "down": 4, "down-left": 5, "left": 6, "up-left": 7
+};
+/* row-major cell index (0..8) -> position in the clockwise screen ring
+   (TC=0,TR=1,RC=2,BR=3,BC=4,BL=5,LC=6,TL=7); centre cell = -1 */
+const ROWMAJOR_TO_RING = [7, 0, 1, 6, -1, 2, 5, 4, 3];
+const NORTH_LABEL = {
+  "up": "↑ Up", "up-right": "↗ Top-right", "right": "→ Right", "down-right": "↘ Bottom-right",
+  "down": "↓ Down", "down-left": "↙ Bottom-left", "left": "← Left", "up-left": "↖ Top-left"
+};
+
+/* Normalise a free-form North string (e.g. from Gemini: "top-right", "NE",
+   "north_east") to one of the 8 canonical codes, or null if unrecognised. */
+function normNorth(s) {
+  if (!s) return null;
+  const k = String(s).toLowerCase().trim().replace(/[\s_]+/g, "-");
+  const map = {
+    "top": "up", "bottom": "down",
+    "top-left": "up-left", "top-right": "up-right",
+    "bottom-left": "down-left", "bottom-right": "down-right",
+    "north": "up", "south": "down", "east": "right", "west": "left",
+    "north-east": "up-right", "northeast": "up-right", "ne": "up-right",
+    "north-west": "up-left", "northwest": "up-left", "nw": "up-left",
+    "south-east": "down-right", "southeast": "down-right", "se": "down-right",
+    "south-west": "down-left", "southwest": "down-left", "sw": "down-left"
+  };
+  const v = map[k] || k;
+  return NORTH_RING_INDEX[v] != null ? v : null;
 }
-function edgeMap(north) {
-  switch (north) {
-    case "right": return { top: "W", right: "N", bottom: "E", left: "S" };
-    case "down":  return { top: "S", right: "W", bottom: "N", left: "E" };
-    case "left":  return { top: "E", right: "S", bottom: "W", left: "N" };
-    default:      return { top: "N", right: "E", bottom: "S", left: "W" }; // up
-  }
-}
+
 /* 9 Vastu zones in screen row-major order (top-left → bottom-right) */
 function screenZones(north) {
-  const e = edgeMap(north);
-  return [
-    combineCorner(e.top, e.left), e.top, combineCorner(e.top, e.right),
-    e.left,                       "C",   e.right,
-    combineCorner(e.bottom, e.left), e.bottom, combineCorner(e.bottom, e.right)
-  ];
+  const k = NORTH_RING_INDEX[north] ?? 0;
+  return ROWMAJOR_TO_RING.map((ring) =>
+    ring === -1 ? "C" : VASTU_RING[(ring - k + 8) % 8]
+  );
 }
 
 /* ---------------- init & mode switching ---------------- */
@@ -420,9 +440,13 @@ function initAnalyzer() {
   document.querySelectorAll("input[name='north']").forEach((r) =>
     r.addEventListener("change", () => {
       analyzer.north = r.value;
+      const nh = $("#north-hint");
+      if (nh) nh.textContent = NORTH_LABEL[r.value] || r.value;
       if (analyzer.imageDataUrl) renderManualGrid();
     })
   );
+  const nh0 = $("#north-hint");
+  if (nh0) nh0.textContent = NORTH_LABEL[analyzer.north] || analyzer.north;
 
   const aiBtn = $("#ai-analyze");
   if (aiBtn) aiBtn.addEventListener("click", runAiAnalysis);
@@ -589,9 +613,13 @@ async function runAiAnalysis() {
 
     const { assignments, warnings } = normalizeDetectedRooms(parsed.rooms || []);
     if (!assignments.length) throw new Error("The AI did not return any recognizable rooms. Try a clearer image or Manual mode.");
+    const detected = normNorth(parsed.detectedNorth);
+    if (detected && detected !== analyzer.north) {
+      warnings.unshift(`AI read North as ${NORTH_LABEL[detected]}, but you selected ${NORTH_LABEL[analyzer.north]}. Zones use your selection — re-check the plan's North arrow if they differ.`);
+    }
     setAnalyzerMsg("ai", "", "");
     renderReport(assignments, {
-      north: parsed.detectedNorth || analyzer.north,
+      north: analyzer.north,
       notes: parsed.notes,
       warnings,
       source: "ai"
@@ -676,7 +704,7 @@ function renderReport(assignments, meta) {
     : "";
   const aiNote = meta.notes ? `<p class="dim">AI observation: ${meta.notes}</p>` : "";
   const sourceLabel = meta.source === "ai" ? "AI (Gemini) detection" : "Manual zone tagging";
-  const northLabel = { up: "Up", down: "Down", left: "Left", right: "Right" }[String(meta.north).toLowerCase()] || meta.north;
+  const northLabel = NORTH_LABEL[meta.north] || meta.north;
 
   $("#report").innerHTML = `
     <div class="rep-head">

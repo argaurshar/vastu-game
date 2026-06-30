@@ -97,11 +97,19 @@
             <input id="plan-file" type="file" accept="image/png,image/jpeg,image/webp" hidden />
           </label>
           <div class="north-pick">
-            <span>North on the plan points:</span>
-            <label><input type="radio" name="north" value="up" checked /> ↑ Up</label>
-            <label><input type="radio" name="north" value="right" /> → Right</label>
-            <label><input type="radio" name="north" value="down" /> ↓ Down</label>
-            <label><input type="radio" name="north" value="left" /> ← Left</label>
+            <span class="north-label">North on the plan points:</span>
+            <div class="north-grid" role="radiogroup" aria-label="Which way North points on the plan">
+              <label title="Top-left"><input type="radio" name="north" value="up-left" aria-label="North towards top-left" /> ↖</label>
+              <label title="Up"><input type="radio" name="north" value="up" checked aria-label="North towards up" /> ↑</label>
+              <label title="Top-right"><input type="radio" name="north" value="up-right" aria-label="North towards top-right" /> ↗</label>
+              <label title="Left"><input type="radio" name="north" value="left" aria-label="North towards left" /> ←</label>
+              <span class="north-center" aria-hidden="true">🧭</span>
+              <label title="Right"><input type="radio" name="north" value="right" aria-label="North towards right" /> →</label>
+              <label title="Bottom-left"><input type="radio" name="north" value="down-left" aria-label="North towards bottom-left" /> ↙</label>
+              <label title="Down"><input type="radio" name="north" value="down" aria-label="North towards down" /> ↓</label>
+              <label title="Bottom-right"><input type="radio" name="north" value="down-right" aria-label="North towards bottom-right" /> ↘</label>
+            </div>
+            <span class="north-hint" id="north-hint">↑ Up</span>
           </div>
         </div>
         <img id="plan-preview" alt="floor plan preview" style="display:none" />

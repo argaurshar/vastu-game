@@ -32,7 +32,8 @@ Upload a floor plan and get a **Vastu compliance report** — each room scored b
 zone (1·BEST / 2A / 2B / AVOID), the doshas found, and concrete rectifications,
 with a **Print / Save-as-PDF** button for client handoff. Two modes:
 
-- **Manual grid** (no key) — upload the plan, set which way North points, drop a
+- **Manual grid** (no key) — upload the plan, set which way North points (all 8
+  directions including the **diagonals**, via a compass-rose picker), drop a
   9-zone Vastu grid over it (auto-oriented to your North), and tag each zone with
   the room(s) you see. The report is built from the app's built-in Vastu data.
 - **AI analysis (Google Gemini)** — Gemini reads the plan (OCR + vision),

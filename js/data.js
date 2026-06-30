@@ -860,7 +860,7 @@ const GEMINI = {
   schema: {
     type: "object",
     properties: {
-      detectedNorth: { type: "string", description: "Where North points on the image: up, down, left or right" },
+      detectedNorth: { type: "string", description: "Where North points on the image: up, up-right, right, down-right, down, down-left, left, or up-left (diagonals allowed)" },
       rooms: {
         type: "array",
         items: {
@@ -878,25 +878,34 @@ const GEMINI = {
     },
     required: ["rooms"]
   },
-  prompt: (declaredNorth) =>
-`You are an expert Vastu Shastra consultant and architect reading a residential floor plan image.
+  prompt: (north) => {
+    const where = {
+      "up": "the top of the image", "up-right": "the top-right corner",
+      "right": "the right edge", "down-right": "the bottom-right corner",
+      "down": "the bottom of the image", "down-left": "the bottom-left corner",
+      "left": "the left edge", "up-left": "the top-left corner"
+    }[north] || "the top of the image";
+    return `You are an expert Vastu Shastra consultant and architect reading a residential floor plan image.
 
-The user says NORTH on this drawing points: ${declaredNorth.toUpperCase()}.
-Using that as North, divide the plan into the 9 Vastu zones of a 3x3 grid:
-NW  N  NE
- W  C  E
-SW  S  SE
+On this drawing, geographic NORTH is towards ${where}. This may be a DIAGONAL direction — respect it exactly; do not assume North is up.
+
+Using that true North, mentally overlay the 9-zone Vastu grid aligned to the compass (not to the page edges):
+N (Uttar), NE (Ishan), E (Purva), SE (Agneya), S (Dakshin), SW (Nairutya), W (Paschim), NW (Vayavya), around the centre C (Brahmasthan).
 
 Tasks:
-1. Confirm or correct the North direction (look for any North arrow/compass; report what you see).
-2. Read every room label (OCR) and also infer unlabelled rooms from fixtures
-   (a stove = kitchen, a bed = bedroom, a WC/commode = toilet, a sink+shower = bathroom,
-   an idol/temple = pooja, stairs, parking, etc.).
-3. For EACH room, decide which of the 9 zones its centre falls in, accounting for the stated North.
-4. Use these canonical room names where they fit: Master Bedroom, Bedroom, Kids Room,
-   Guest Bedroom, Mandir / Pooja Room, Kitchen, Toilet, Washroom / Bathroom, Living Room,
-   Dining Room, Study Room, Home Office, Staircase, Store Room, Main Entrance, Garage,
-   Balcony, Pooja, Brahmasthan (Centre).
+1. Report the North arrow you actually see on the drawing as "detectedNorth"
+   (one of: up, up-right, right, down-right, down, down-left, left, up-left).
+   IMPORTANT: compute every room's zone using the user-stated North above, even if the
+   drawing's own arrow seems to differ — do not silently recompute against a different North.
+2. OCR every room label, and infer unlabelled rooms from fixtures
+   (stove = kitchen, bed = bedroom, WC/commode = toilet, sink+shower = bathroom,
+   idol/temple = pooja, stairs, parking, etc.).
+3. For EACH room, decide which of the 9 compass zones (NW, N, NE, W, C, E, SW, S, SE) its centre
+   falls in, measured from the building's centre using the true North above.
+4. Prefer these canonical names where they fit: Master Bedroom, Bedroom, Kids Room, Guest Bedroom,
+   Mandir / Pooja Room, Kitchen, Toilet, Washroom / Bathroom, Living Room, Dining Room, Study Room,
+   Home Office, Staircase, Store Room, Main Entrance, Garage, Balcony, Brahmasthan (Centre).
 
-Return ONLY JSON matching the provided schema. Do not include any prose outside the JSON.`
+Return ONLY JSON matching the provided schema. Do not include any prose outside the JSON.`;
+  }
 };

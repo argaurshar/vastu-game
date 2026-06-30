@@ -587,3 +587,29 @@ section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
   .rep-badge.good { background: #fdeccf !important; }
   .rep-badge.avoid { background: #fbd9d9 !important; }
 }
+
+/* 8-direction North picker laid out as a compass rose (empty centre) */
+.north-pick { display: flex; flex-direction: column; gap: 0.45rem; align-items: flex-start; }
+.north-label { font-size: 0.85rem; color: var(--text-dim); }
+.north-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 2.1rem);
+  grid-template-rows: repeat(3, 2.1rem);
+  gap: 5px;
+}
+.north-grid label {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--neutral); border-radius: 8px;
+  background: var(--bg-card-2); color: var(--text-dim);
+  font-size: 1.05rem; cursor: pointer; transition: all 0.12s;
+}
+.north-grid label:hover { border-color: var(--accent); }
+.north-grid label input { position: absolute; opacity: 0; width: 0; height: 0; }
+.north-grid label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.north-grid label:has(input:checked) {
+  border-color: var(--accent); color: var(--text); font-weight: 800;
+  background: rgba(245, 185, 66, 0.2);
+}
+.north-center { display: flex; align-items: center; justify-content: center; font-size: 0.95rem; opacity: 0.6; }
+.north-hint { font-size: 0.82rem; color: var(--accent); font-weight: 700; }
