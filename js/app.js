@@ -368,6 +368,8 @@ document.addEventListener("DOMContentLoaded", () => {
 const analyzer = {
   mode: "manual",
   imageDataUrl: null,   // raster for preview + manual overlay
+  pdfFile: null,        // kept so the preview can render lazily (manual mode only)
+  rendering: false,
   aiBase64: null,       // bytes sent to Gemini (a PDF is sent as-is)
   aiMime: null,
   north: "up",
@@ -473,7 +475,10 @@ function setAnalyzerMode(mode) {
   );
   $("#ai-panel").style.display = mode === "ai" ? "" : "none";
   $("#manual-panel").style.display = mode === "manual" ? "" : "none";
-  if (mode === "manual" && (analyzer.imageDataUrl || analyzer.aiBase64)) renderManualGrid();
+  if (mode === "manual") {
+    if (analyzer.pdfFile && !analyzer.imageDataUrl) ensurePdfPreview();
+    if (analyzer.imageDataUrl || analyzer.aiBase64) renderManualGrid();
+  }
 }
 
 function setAnalyzerMsg(scope, msg, kind) {
@@ -526,22 +531,34 @@ async function handleUpload(file) {
   setAnalyzerMsg("manual", "", "");
 
   if (isImg) {
+    analyzer.pdfFile = null;
     analyzer.imageDataUrl = dataUrl;
     showPreviewAndGrid();
     return;
   }
 
-  // PDF: usable for AI right now; render the manual preview in the background.
+  // PDF: ready for AI INSTANTLY — Gemini reads the PDF directly, so we do NOT
+  // rasterise it here (that render is what used to freeze the page for minutes).
+  // The preview is rendered lazily only when the user opens Manual mode.
+  analyzer.pdfFile = file;
   analyzer.imageDataUrl = null;
   setAnalyzerMsg("ai", file.size > 18 * 1024 * 1024
-    ? "PDF ready, but it's large — if Gemini returns a 400, export a smaller PDF or a PNG."
-    : "PDF ready — click “Analyze with Gemini”.", file.size > 18 * 1024 * 1024 ? "warn" : "");
+    ? `PDF “${file.name}” ready, but large — if Gemini returns 400, export a smaller PDF or a PNG.`
+    : `PDF “${file.name}” ready — click “Analyze with Gemini”.`, file.size > 18 * 1024 * 1024 ? "warn" : "");
+  setAnalyzerMsg("manual", "PDF ready. Open this tab to render a preview for manual tagging.", "");
+  if (analyzer.mode === "manual") { ensurePdfPreview(); renderManualGrid(); }
+}
+
+/* Render the stored PDF to a preview image — lazily, only for manual mode. */
+function ensurePdfPreview() {
+  if (!analyzer.pdfFile || analyzer.imageDataUrl || analyzer.rendering) return;
+  analyzer.rendering = true;
   setAnalyzerMsg("manual", "Rendering a preview for manual tagging… you can start assigning zones now.", "busy");
-  showPreviewAndGrid();
-  pdfToImage(file)
+  pdfToImage(analyzer.pdfFile)
     .then((img) => { analyzer.imageDataUrl = img; showPreviewAndGrid(); setAnalyzerMsg("manual", "", ""); })
     .catch((err) => setAnalyzerMsg("manual",
-      "Couldn't render the PDF preview (" + err.message + "). AI mode still works; for manual tagging upload a PNG/JPG.", "warn"));
+      "Couldn't render the PDF preview (" + err.message + "). AI mode still works; for manual tagging upload a PNG/JPG.", "warn"))
+    .finally(() => { analyzer.rendering = false; });
 }
 
 /* lazy-load pdf.js (UMD) once, then render page 1 to a PNG data URL */
@@ -578,7 +595,10 @@ async function pdfToImage(file) {
   canvas.width = Math.round(viewport.width);
   canvas.height = Math.round(viewport.height);
   await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-  return canvas.toDataURL("image/jpeg", 0.85);           // JPEG encodes far faster than PNG
+  // toBlob is asynchronous — it does not block the main thread like toDataURL
+  return await new Promise((resolve, reject) =>
+    canvas.toBlob((b) => b ? resolve(URL.createObjectURL(b)) : reject(new Error("could not encode preview")), "image/jpeg", 0.85)
+  );
 }
 
 /* ---------------- manual grid + assignments ---------------- */
@@ -772,6 +792,40 @@ function buildGeminiBody() {
   };
 }
 
+/* button spinner + animated progress while the model thinks */
+function setAiBusy(on, msg) {
+  const btn = $("#ai-analyze");
+  if (btn) {
+    btn.disabled = on;
+    btn.classList.toggle("loading", on);
+    btn.textContent = on ? "Analyzing…" : "Analyze with Gemini";
+  }
+  const bar = $("#ai-progress");
+  if (bar) bar.classList.toggle("show", on);
+  if (msg) setAnalyzerMsg("ai", msg, "busy");
+}
+
+/* one timed retry on the same model, then fall back to the highest-limit model */
+async function callWithRetry(model, key) {
+  let res = await geminiRequest(model, key);
+  if (res.status !== 429) return { res, model };
+
+  const delay = Math.min(parseRetryDelay(await res.text()) || 15, 25);
+  for (let s = delay; s > 0; s--) { setAiBusy(true, `Rate limit on ${model}. Auto-retrying in ${s}s…`); await sleep(1000); }
+  res = await geminiRequest(model, key);
+  if (res.status !== 429) return { res, model };
+
+  const fallback = "gemini-2.5-flash-lite";
+  if (model !== fallback) {
+    setAiBusy(true, `Still limited on ${model} — switching to Flash-Lite (higher free limits)…`);
+    const sel = $("#gemini-model");
+    if (sel) { sel.value = fallback; saveModel(fallback); }
+    res = await geminiRequest(fallback, key);
+    return { res, model: fallback };
+  }
+  return { res, model };
+}
+
 async function runAiAnalysis() {
   if (!analyzer.aiBase64) { setAnalyzerMsg("ai", "Upload a floor-plan image or PDF first.", "warn"); return; }
   const key = ($("#gemini-key").value || "").trim();
@@ -780,28 +834,22 @@ async function runAiAnalysis() {
   const model = $("#gemini-model").value || GEMINI.model;
   saveModel(model);
 
-  setAnalyzerMsg("ai", "Analyzing the plan with Gemini… this can take 10–20s.", "busy");
-  $("#ai-analyze").disabled = true;
+  setAiBusy(true, "Analyzing the plan with Gemini… this can take 10–20s.");
   try {
-    let res = await geminiRequest(model, key);
-    if (res.status === 429) {
-      const t = await res.text();
-      const delay = Math.min(parseRetryDelay(t) || 20, 30);
-      setAnalyzerMsg("ai", `Rate limit (429) on ${model}. Auto-retrying in ${delay}s… (tip: pick Flash-Lite below for higher limits)`, "busy");
-      await sleep(delay * 1000);
-      res = await geminiRequest(model, key);
-    }
+    const result = await callWithRetry(model, key);
+    const res = result.res;
+    const usedModel = result.model;
     if (!res.ok) {
       const t = await res.text().catch(() => "");
       const apiMsg = apiErrorMessage(t);
       if (res.status === 429)
-        throw new Error(`Still rate-limited on ${model}. Your free-tier quota for this model is used up — wait a minute, switch to a higher-limit model (e.g. Flash-Lite) in the Model dropdown, or enable billing in Google AI Studio.`);
+        throw new Error(`Still rate-limited on ${usedModel}. The free-tier quota is used up — wait a minute, or enable billing in Google AI Studio. (Already tried Flash-Lite automatically.)`);
       if (res.status === 400)
         throw new Error("Gemini rejected the request (400)" + (apiMsg ? ": " + apiMsg : ". Check the model and that the Generative Language API is enabled."));
       if (res.status === 401 || res.status === 403)
         throw new Error("Invalid or unauthorized API key (HTTP " + res.status + ")" + (apiMsg ? ": " + apiMsg : "."));
       if (res.status === 404)
-        throw new Error(`Model "${model}" isn't available for your key (404). Pick a different model in the dropdown.`);
+        throw new Error(`Model "${usedModel}" isn't available for your key (404). Pick a different model in the dropdown.`);
       throw new Error("Gemini error HTTP " + res.status + (apiMsg ? ": " + apiMsg : "."));
     }
     const data = await res.json();
@@ -826,7 +874,7 @@ async function runAiAnalysis() {
   } catch (err) {
     setAnalyzerMsg("ai", err.message + (/Failed to fetch/i.test(err.message) ? " (network/CORS — try Manual grid mode)" : ""), "warn");
   } finally {
-    $("#ai-analyze").disabled = false;
+    setAiBusy(false);
   }
 }
 
