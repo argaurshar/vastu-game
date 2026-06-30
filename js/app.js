@@ -974,59 +974,147 @@ function findDosha(roomId, zone) {
   return DOSHAS.find((d) => d.roomId === roomId && Array.isArray(d.zones) && d.zones.includes(zone));
 }
 
+function verdictText(v) {
+  return v.cls === "best" ? "1 · BEST" : v.cls === "good" ? v.label : v.cls === "avoid" ? "AVOID" : "Acceptable";
+}
+
+function donutSvg(pct, color) {
+  const r = 42, c = 2 * Math.PI * r, off = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
+  return `<svg viewBox="0 0 100 100" class="rep-donut" aria-hidden="true">
+    <circle class="ring-bg" cx="50" cy="50" r="${r}"></circle>
+    <circle class="ring-fg" cx="50" cy="50" r="${r}" stroke="${color}" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"></circle>
+    <text class="ring-num" x="50" y="56">${pct}%</text>
+  </svg>`;
+}
+
+/* where a Vastu zone sits on the plan image, as a 0..1 fraction, for any North */
+function zoneScreenFraction(zone, north) {
+  const idx = GRID_ORDER.indexOf(zone);
+  const col = idx % 3, row = Math.floor(idx / 3);
+  const ox = col - 1, oy = row - 1;
+  const ang = (NORTH_ANGLE[north] || 0) * Math.PI / 180;
+  const rx = ox * Math.cos(ang) - oy * Math.sin(ang);
+  const ry = ox * Math.sin(ang) + oy * Math.cos(ang);
+  return { fx: 0.5 + rx / 3, fy: 0.5 + ry / 3 };
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+async function getPlanImageForReport() {
+  if (analyzer.imageDataUrl) return analyzer.imageDataUrl;
+  if (analyzer.pdfFile) {
+    try { const img = await pdfToImage(analyzer.pdfFile); analyzer.imageDataUrl = img; return img; }
+    catch (_) { return null; }
+  }
+  return null;
+}
+
+/* Draw the consultant-style marked-up plan: green ✓ pills for kept rooms,
+   red ⚠ pills (with the destination zone) for forbidden-zone rooms. */
+async function buildAnnotatedPlan(rows, north) {
+  const src = await getPlanImageForReport();
+  if (!src) return null;
+  const img = await new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+  if (!img || !img.naturalWidth) return null;
+
+  const maxW = 1200;
+  const scale = Math.min(1, maxW / img.naturalWidth);
+  const W = Math.round(img.naturalWidth * scale), H = Math.round(img.naturalHeight * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, W, H);
+  ctx.fillStyle = "rgba(255,255,255,0.10)"; ctx.fillRect(0, 0, W, H);
+
+  const byZone = {};
+  rows.forEach((r) => { (byZone[r.a.zone] = byZone[r.a.zone] || []).push(r); });
+
+  const fs = Math.max(12, Math.round(W / 52));
+  const h = Math.round(fs * 1.8);
+  ctx.font = "700 " + fs + "px Segoe UI, Arial, sans-serif";
+  ctx.textBaseline = "middle";
+
+  Object.keys(byZone).forEach((zone) => {
+    const { fx, fy } = zoneScreenFraction(zone, north);
+    const cx = fx * W, cy = fy * H;
+    byZone[zone].forEach((r, i) => {
+      const bad = r.v.cls === "avoid";
+      const color = bad ? "#ef4444" : (r.v.cls === "best" ? "#16a34a" : r.v.cls === "good" ? "#d97706" : "#475569");
+      const label = (bad ? "⚠ " : "✓ ") + r.a.room.name + (bad ? "  ➜  " + dirLabel(r.ideal) : "");
+      const padX = Math.round(fs * 0.7);
+      const tw = ctx.measureText(label).width + padX * 2;
+      let x = cx - tw / 2, y = cy - h / 2 + i * (h + 6);
+      x = Math.max(4, Math.min(x, W - tw - 4));
+      y = Math.max(4, Math.min(y, H - h - 4));
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 5; ctx.shadowOffsetY = 1;
+      ctx.fillStyle = color;
+      roundRectPath(ctx, x, y, tw, h, h / 2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(label, x + padX, y + h / 2 + 1);
+    });
+  });
+  return canvas.toDataURL("image/jpeg", 0.92);
+}
+
 function renderReport(assignments, meta) {
   const rows = assignments.map((a) => {
-    const v = zoneVerdict(a.room, a.zone);              // {cls,label}
+    const v = zoneVerdict(a.room, a.zone);
     const ideal = a.room.best;
-    const ok = v.cls === "best" || v.cls === "good";
+    const isAvoid = v.cls === "avoid";   // ONLY a forbidden zone needs relocation
     let rect = "";
-    if (!ok) {
+    if (isAvoid) {
       const dosha = findDosha(a.room.id, a.zone);
-      if (dosha) rect = dosha.remedies[0];
-      else rect = `Shift ${a.room.name} towards its best zone — ${dirLabel(ideal)}. ${a.room.tips[0] || ""}`.trim();
+      rect = dosha ? dosha.remedies[0] : `Move ${a.room.name} to its best zone — ${dirLabel(ideal)}. ${a.room.tips[0] || ""}`.trim();
     }
-    return { a, v, ideal, ok, rect, dosha: ok ? null : findDosha(a.room.id, a.zone) };
+    return { a, v, ideal, isAvoid, rect, dosha: isAvoid ? findDosha(a.room.id, a.zone) : null };
   });
 
   const total = rows.length;
-  const good = rows.filter((r) => r.ok).length;
-  const score = total ? Math.round((good / total) * 100) : 0;
-  const band = score >= 75 ? "best" : score >= 45 ? "good" : "avoid";
-  const bandWord = score >= 75 ? "Largely Vastu-compliant" : score >= 45 ? "Partly compliant — fixable" : "Several major doshas";
+  const problems = rows.filter((r) => r.isAvoid);
+  const kept = rows.filter((r) => !r.isAvoid);
+  const pct = total ? Math.round((kept.length / total) * 100) : 0;
+  const band = problems.length === 0 ? "best" : problems.length <= 2 ? "good" : "avoid";
+  const headline = problems.length === 0
+    ? "No room in a forbidden zone"
+    : `${problems.length} room${problems.length > 1 ? "s" : ""} to relocate`;
+  const ringColor = band === "best" ? "#16a34a" : band === "good" ? "#d97706" : "#ef4444";
 
-  const problems = rows.filter((r) => !r.ok);
-  const positives = rows.filter((r) => r.ok);
-
-  const verdictBadge = (v) =>
-    `<span class="rep-badge ${v.cls}">${v.cls === "best" ? "1 · BEST" : v.cls === "good" ? v.label : v.cls === "avoid" ? "AVOID" : "NOT IDEAL"}</span>`;
-
-  const tableRows = rows.map((r) => `
-    <tr>
-      <td>${r.a.room.icon} ${r.a.room.name}</td>
-      <td>${DIRECTIONS[r.a.zone].label}</td>
-      <td>${verdictBadge(r.v)}</td>
-      <td>${dirLabel(r.ideal)}</td>
-      <td>${r.ok ? "✓ Well placed" : (r.rect || "")}</td>
-    </tr>`).join("");
-
-  const problemCards = problems.length ? problems.map((r) => {
-    const sev = r.dosha ? r.dosha.severity : (r.v.cls === "avoid" ? "high" : "medium");
-    const why = r.dosha ? r.dosha.why : `${r.a.room.name} is out of its recommended zone, weakening the ${DIRECTIONS[r.a.zone].element} balance of the ${DIRECTIONS[r.a.zone].label}.`;
-    const rem = r.dosha ? r.dosha.remedies : [r.rect, ...r.a.room.tips.slice(0, 2)];
+  const fixCards = problems.length ? problems.map((r) => {
+    const sev = r.dosha ? r.dosha.severity : "high";
+    const why = r.dosha ? r.dosha.why
+      : `${r.a.room.name} sits in the ${DIRECTIONS[r.a.zone].label} — a forbidden zone for it, clashing with that corner's ${DIRECTIONS[r.a.zone].element} energy.`;
+    const rem = r.dosha ? r.dosha.remedies : [r.rect, ...r.a.room.tips.slice(0, 2)].filter(Boolean);
     return `
-      <div class="rep-problem">
-        <div class="rep-problem-head">
+      <div class="fix-card">
+        <div class="fix-top">
+          <span class="fix-room">${r.a.room.icon} ${r.a.room.name}</span>
           <span class="sev ${sev}">${sev === "high" ? "HIGH" : "MEDIUM"}</span>
-          <b>${r.a.room.icon} ${r.a.room.name} in the ${DIRECTIONS[r.a.zone].label}</b>
         </div>
-        <p class="dim">${why}</p>
-        <ul>${rem.map((x) => `<li>${x}</li>`).join("")}</ul>
+        <div class="fix-move">
+          <span class="loc bad">${DIRECTIONS[r.a.zone].label}</span>
+          <span class="fix-arrow">➜</span>
+          <span class="loc good">${dirLabel(r.ideal)} <em>best</em></span>
+        </div>
+        <p class="fix-why">${why}</p>
+        <ul class="fix-rem">${rem.map((x) => `<li>${x}</li>`).join("")}</ul>
       </div>`;
-  }).join("") : `<p class="dim">No major placement doshas found — well done.</p>`;
+  }).join("") : `<p class="rep-allgood">✓ Every room is in an acceptable zone — nothing has to move.</p>`;
+
+  const chip = (r) => `<span class="keep-chip ${r.v.cls}">${r.a.room.icon} ${r.a.room.name} · ${DIRECTIONS[r.a.zone].label} · ${verdictText(r.v)}</span>`;
+  const keptHtml = kept.length ? `<div class="keep-wrap">${kept.map(chip).join("")}</div>` : `<p class="dim">—</p>`;
 
   const warnHtml = (meta.warnings && meta.warnings.length)
-    ? `<div class="rep-warn"><b>Notes from detection:</b><ul>${meta.warnings.map((w) => `<li>${w}</li>`).join("")}</ul></div>`
-    : "";
+    ? `<div class="rep-warn"><b>Notes from detection:</b><ul>${meta.warnings.map((w) => `<li>${w}</li>`).join("")}</ul></div>` : "";
   const aiNote = meta.notes ? `<p class="dim">AI observation: ${meta.notes}</p>` : "";
   const sourceLabel = meta.source === "ai" ? "AI (Gemini) detection" : "Manual zone tagging";
   const northLabel = NORTH_LABEL[meta.north] || meta.north;
@@ -1034,32 +1122,47 @@ function renderReport(assignments, meta) {
   $("#report").innerHTML = `
     <div class="rep-head">
       <h3>🧭 Vastu Analysis Report</h3>
-      <button class="btn" id="print-report">🖨️ Print / Save as PDF</button>
+      <button class="btn" id="print-report">🖨️ Save as PDF</button>
     </div>
     <div class="rep-meta">
       <span><b>Source:</b> ${sourceLabel}</span>
       <span><b>North:</b> ${northLabel}</span>
       <span><b>Date:</b> ${new Date().toLocaleDateString()}</span>
     </div>
-    <div class="rep-score ${band}">
-      <div class="rep-score-num">${score}%</div>
-      <div><b>${bandWord}</b><br><span class="dim">${good} of ${total} rooms in a recommended zone (best or 2nd-best)</span></div>
+
+    <div class="rep-hero ${band}">
+      <div class="rep-gauge">
+        ${donutSvg(pct, ringColor)}
+        <div class="rep-gauge-cap"><b>${headline}</b><span class="dim">${kept.length} of ${total} rooms fine to keep</span></div>
+      </div>
+      <div class="rep-legend2">
+        <span><i class="sw keep"></i> Keep — best / 2nd / 3rd / acceptable</span>
+        <span><i class="sw move"></i> Relocate — in a forbidden zone</span>
+      </div>
     </div>
+
+    <h4 class="rep-h">Marked-up plan</h4>
+    <div id="rep-plan" class="rep-plan"><div class="rep-plan-load">🖊️ Marking your plan…</div></div>
+
     ${aiNote}${warnHtml}
-    <h4 class="rep-h">Room-by-room</h4>
-    <div class="rep-table-wrap">
-      <table class="rep-table">
-        <thead><tr><th>Room</th><th>Detected zone</th><th>Verdict</th><th>Ideal (1·BEST)</th><th>Action</th></tr></thead>
-        <tbody>${tableRows}</tbody>
-      </table>
-    </div>
-    <h4 class="rep-h">Problems &amp; rectifications</h4>
-    ${problemCards}
-    <h4 class="rep-h">Well-placed rooms</h4>
-    ${positives.length ? `<div class="rep-pos">${positives.map((r) => `<span class="assign-tag static">${r.a.room.icon} ${r.a.room.name} · ${DIRECTIONS[r.a.zone].label}</span>`).join("")}</div>` : `<p class="dim">None yet.</p>`}
-    <p class="rep-disclaimer">${meta.source === "ai" ? "AI detection is best-effort OCR/vision — verify zones against the actual drawing. " : ""}This report is generated from traditional Vastu principles for guidance; consult a qualified Vastu expert for construction decisions.</p>`;
+
+    <h4 class="rep-h">⚠ Must relocate <span class="dim">— only rooms in a forbidden zone</span></h4>
+    <div class="fix-grid">${fixCards}</div>
+
+    <h4 class="rep-h">✓ Keep as-is <span class="dim">— best, 2nd/3rd-best &amp; acceptable placements</span></h4>
+    ${keptHtml}
+
+    <p class="rep-disclaimer">${meta.source === "ai" ? "AI detection is best-effort — verify the marked zones against the real drawing. " : ""}Rooms already in their best, 2nd/3rd-best or an acceptable zone are kept as-is; only forbidden-zone placements are flagged for relocation. Guidance only — consult a qualified Vastu expert for construction decisions.</p>`;
 
   $("#report").style.display = "block";
   $("#print-report").addEventListener("click", () => window.print());
   $("#report").scrollIntoView({ behavior: "smooth", block: "start" });
+
+  buildAnnotatedPlan(rows, meta.north).then((url) => {
+    const el = $("#rep-plan");
+    if (!el) return;
+    el.innerHTML = url
+      ? `<img src="${url}" alt="marked-up Vastu plan" />`
+      : `<div class="rep-plan-load">No plan image available to mark — upload an image or PDF in the Analyze tab.</div>`;
+  });
 }
