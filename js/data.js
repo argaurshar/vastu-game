@@ -852,7 +852,16 @@ const DOSHAS = [
    supplied API key (stored only in localStorage). No backend.
    ============================================================ */
 const GEMINI = {
-  model: "gemini-2.5-flash",            // editable in the UI; fast multimodal OCR/vision
+  model: "gemini-2.5-flash",            // default; editable in the UI
+  /* predefined models offered in the dropdown. Flash-Lite has the highest
+     free-tier limits, Pro the lowest — handy when a key hits 429. */
+  models: [
+    { id: "gemini-2.5-flash",      label: "Gemini 2.5 Flash — balanced (default)" },
+    { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite — fastest, highest free limit" },
+    { id: "gemini-2.5-pro",        label: "Gemini 2.5 Pro — most accurate, lowest free limit" },
+    { id: "gemini-2.0-flash",      label: "Gemini 2.0 Flash — previous generation" },
+    { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash-Lite — previous gen, high limit" }
+  ],
   endpoint: (model, key) =>
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
   keyUrl: "https://aistudio.google.com/app/apikey",

@@ -123,8 +123,8 @@
             <label>API key
               <input id="gemini-key" type="password" autocomplete="off" placeholder="paste your Google Gemini key" />
             </label>
-            <label>Model (optional)
-              <input id="gemini-model" type="text" autocomplete="off" />
+            <label>Model
+              <select id="gemini-model"></select>
             </label>
           </div>
           <p class="an-note">
@@ -132,6 +132,8 @@
             never to this site's server. In AI mode your plan image is uploaded to Google's Gemini API
             for analysis. Get a free key at
             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+            <br />⚡ Free keys have low limits — if you hit a rate-limit (429), choose
+            <b>Flash-Lite</b> above or wait a minute; the tool also auto-retries once.
           </p>
         </details>
         <button class="btn" id="ai-analyze" disabled>Analyze with Gemini</button>

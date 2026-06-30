@@ -428,8 +428,12 @@ function initAnalyzer() {
     keyInput.value = loadApiKey();
     keyInput.addEventListener("change", () => saveApiKey(keyInput.value));
   }
-  const modelInput = $("#gemini-model");
-  if (modelInput) modelInput.placeholder = GEMINI.model;
+  const modelSel = $("#gemini-model");
+  if (modelSel) {
+    modelSel.innerHTML = GEMINI.models.map((m) => `<option value="${m.id}">${m.label}</option>`).join("");
+    modelSel.value = loadModel() || GEMINI.model;
+    modelSel.addEventListener("change", () => saveModel(modelSel.value));
+  }
 
   document.querySelectorAll(".an-tab").forEach((t) =>
     t.addEventListener("click", () => setAnalyzerMode(t.dataset.mode))
@@ -696,6 +700,24 @@ function collectManualAssignments() {
 /* ---------------- API key persistence ---------------- */
 function saveApiKey(k) { try { localStorage.setItem("vastu-gemini-key", k.trim()); } catch (_) {} }
 function loadApiKey() { try { return localStorage.getItem("vastu-gemini-key") || ""; } catch (_) { return ""; } }
+function saveModel(m) { try { localStorage.setItem("vastu-gemini-model", m); } catch (_) {} }
+function loadModel() { try { return localStorage.getItem("vastu-gemini-model") || ""; } catch (_) { return ""; } }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function parseRetryDelay(bodyText) {
+  try {
+    const det = (JSON.parse(bodyText)?.error?.details) || [];
+    for (const x of det) { const m = x.retryDelay && /([\d.]+)s/.exec(x.retryDelay); if (m) return Math.ceil(parseFloat(m[1])); }
+  } catch (_) {}
+  return null;
+}
+function apiErrorMessage(bodyText) { try { return JSON.parse(bodyText)?.error?.message || ""; } catch (_) { return ""; } }
+function geminiRequest(model, key) {
+  return fetch(GEMINI.endpoint(model, key), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(buildGeminiBody())
+  });
+}
 
 /* ---------------- Gemini request ---------------- */
 function buildGeminiBody() {
@@ -719,20 +741,33 @@ async function runAiAnalysis() {
   const key = ($("#gemini-key").value || "").trim();
   if (!key) { setAnalyzerMsg("ai", "Enter your Google Gemini API key above (it stays in your browser).", "warn"); $("#gemini-key").focus(); return; }
   saveApiKey(key);
-  const model = ($("#gemini-model").value || "").trim() || GEMINI.model;
+  const model = $("#gemini-model").value || GEMINI.model;
+  saveModel(model);
 
   setAnalyzerMsg("ai", "Analyzing the plan with Gemini… this can take 10–20s.", "busy");
   $("#ai-analyze").disabled = true;
   try {
-    const res = await fetch(GEMINI.endpoint(model, key), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildGeminiBody())
-    });
-    if (res.status === 400) throw new Error("Gemini rejected the request (400). Check the model name and that your key has the Generative Language API enabled.");
-    if (res.status === 401 || res.status === 403) throw new Error("Invalid or unauthorized API key (HTTP " + res.status + ").");
-    if (res.status === 429) throw new Error("Rate limit reached (429). Wait a moment and try again.");
-    if (!res.ok) throw new Error("Gemini error HTTP " + res.status + ".");
+    let res = await geminiRequest(model, key);
+    if (res.status === 429) {
+      const t = await res.text();
+      const delay = Math.min(parseRetryDelay(t) || 20, 30);
+      setAnalyzerMsg("ai", `Rate limit (429) on ${model}. Auto-retrying in ${delay}s… (tip: pick Flash-Lite below for higher limits)`, "busy");
+      await sleep(delay * 1000);
+      res = await geminiRequest(model, key);
+    }
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      const apiMsg = apiErrorMessage(t);
+      if (res.status === 429)
+        throw new Error(`Still rate-limited on ${model}. Your free-tier quota for this model is used up — wait a minute, switch to a higher-limit model (e.g. Flash-Lite) in the Model dropdown, or enable billing in Google AI Studio.`);
+      if (res.status === 400)
+        throw new Error("Gemini rejected the request (400)" + (apiMsg ? ": " + apiMsg : ". Check the model and that the Generative Language API is enabled."));
+      if (res.status === 401 || res.status === 403)
+        throw new Error("Invalid or unauthorized API key (HTTP " + res.status + ")" + (apiMsg ? ": " + apiMsg : "."));
+      if (res.status === 404)
+        throw new Error(`Model "${model}" isn't available for your key (404). Pick a different model in the dropdown.`);
+      throw new Error("Gemini error HTTP " + res.status + (apiMsg ? ": " + apiMsg : "."));
+    }
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
     let parsed;
