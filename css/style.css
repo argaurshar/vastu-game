@@ -19,7 +19,7 @@
   --surface-3: #E4EAF3;
   --ink: #0F172A;
   --ink-soft: #334155;
-  --muted: #64748B;
+  --muted: #556579;
   --line: #E2E8F0;
   --line-strong: #CBD5E1;
 
@@ -34,6 +34,7 @@
   --orange: #D97706; --orange-soft: #FCEFD9; --orange-border: #F1CE93; --orange-ink: #B45309;
   --red: #DC2626;    --red-soft: #FBE4E4;    --red-border: #F3B4B4;    --red-ink: #B91C1C;
   --purple: #7C3AED; --purple-soft: #EEE8FD;
+  --crop-veil: rgba(8, 12, 24, 0.55);
 
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
   --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
@@ -69,6 +70,7 @@
   --orange: #FBBF24; --orange-soft: rgba(251, 191, 36, 0.14); --orange-border: rgba(251, 191, 36, 0.42); --orange-ink: #FCD34D;
   --red: #F87171;    --red-soft: rgba(248, 113, 113, 0.15);   --red-border: rgba(248, 113, 113, 0.42);   --red-ink: #FCA5A5;
   --purple: #A78BFA; --purple-soft: rgba(167, 139, 250, 0.16);
+  --crop-veil: rgba(0, 0, 0, 0.66);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
@@ -424,7 +426,7 @@ section h2 svg { width: 22px; height: 22px; color: var(--brand-2); flex: 0 0 aut
 .crop-hint b { color: var(--ink); }
 .crop-stage { position: relative; display: inline-block; max-width: 100%; line-height: 0; border-radius: 12px; overflow: hidden; touch-action: none; border: 1px solid var(--line); }
 .crop-img { max-width: 100%; max-height: 62vh; display: block; user-select: none; -webkit-user-drag: none; }
-.crop-rect { position: absolute; border: 2px solid var(--brand-2); box-shadow: 0 0 0 9999px rgba(8, 12, 24, 0.55); cursor: move; box-sizing: border-box; }
+.crop-rect { position: absolute; border: 2px solid var(--brand-2); box-shadow: 0 0 0 9999px var(--crop-veil); cursor: move; box-sizing: border-box; }
 .crop-h { position: absolute; width: 18px; height: 18px; background: var(--brand-2); border: 2px solid #fff; border-radius: 50%; touch-action: none; }
 .crop-h.tl { left: -10px; top: -10px; cursor: nwse-resize; }
 .crop-h.tr { right: -10px; top: -10px; cursor: nesw-resize; }
@@ -544,4 +546,22 @@ footer { text-align: center; color: var(--muted); font-size: 0.78rem; padding: 2
   #analyze > *:not(#report) { display: none !important; }
   #dl-pdf, #dl-pdf-2, #print-report { display: none !important; }
   body { background: #fff; }
+}
+
+
+/* ---------- review fixes: contrast, focus, responsive ---------- */
+.c-green  { color: var(--green-ink);  font-weight: 800; }
+.c-orange { color: var(--orange-ink); font-weight: 800; }
+.c-red    { color: var(--red-ink);    font-weight: 800; }
+.section-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; text-decoration: none; border-radius: 6px; }
+#theme-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* analyzer controls stack cleanly on small screens; compass stays tappable */
+@media (max-width: 520px) {
+  .upload-row { flex-direction: column; align-items: stretch; }
+  .upload-btn { justify-content: center; }
+  .north-pick { align-items: center; }
+}
+@media (max-width: 400px) {
+  .north-grid { grid-template-columns: repeat(3, 1.9rem); grid-template-rows: repeat(3, 1.9rem); gap: 4px; }
 }
