@@ -966,6 +966,7 @@ function renderReport(assignments, meta) {
     return { a, v, ideal, isAvoid, rect, dosha: isAvoid ? findDosha(a.room.id, a.zone) : null };
   });
 
+  LAST_REPORT = { rows, meta };
   const total = rows.length;
   const problems = rows.filter((r) => r.isAvoid);
   const kept = rows.filter((r) => !r.isAvoid);
@@ -1019,7 +1020,7 @@ function renderReport(assignments, meta) {
   $("#report").innerHTML = `
     <div class="rep-head">
       <h3>🧭 Vastu Analysis Report</h3>
-      <button class="btn" id="print-report">🖨️ Save as PDF</button>
+      <button class="btn btn-lg" id="dl-pdf">⬇ Download PDF report</button>
     </div>
     <div class="rep-meta">
       <span><b>Source:</b> ${sourceLabel}</span>
@@ -1064,10 +1065,12 @@ function renderReport(assignments, meta) {
     <h4 class="rep-h">✓ Keep as-is <span class="dim">— best, 2nd/3rd-best &amp; acceptable placements</span></h4>
     ${keptHtml}
 
-    <p class="rep-disclaimer">${meta.source === "ai" ? "AI detection is best-effort — verify the marked zones against the real drawing. " : ""}Rooms already in their best, 2nd/3rd-best or an acceptable zone are kept as-is; only forbidden-zone placements are flagged for relocation. Guidance only — consult a qualified Vastu expert for construction decisions.</p>`;
+    <p class="rep-disclaimer">${meta.source === "ai" ? "AI detection is best-effort — verify the marked zones against the real drawing. " : ""}Rooms already in their best, 2nd/3rd-best or an acceptable zone are kept as-is; only forbidden-zone placements are flagged for relocation. Guidance only — consult a qualified Vastu expert for construction decisions.</p>
+    <div class="rep-foot-actions"><button class="btn btn-lg btn-block" id="dl-pdf-2">⬇ Download one-page PDF</button></div>`;
 
   $("#report").style.display = "block";
-  $("#print-report").addEventListener("click", () => window.print());
+  $("#dl-pdf").addEventListener("click", downloadReportPdf);
+  const dl2 = $("#dl-pdf-2"); if (dl2) dl2.addEventListener("click", downloadReportPdf);
   $("#report").scrollIntoView({ behavior: "smooth", block: "start" });
 
   buildAnnotatedPlan(rows, meta.north).then((url) => {
@@ -1080,3 +1083,332 @@ function renderReport(assignments, meta) {
 }
 
 
+
+/* ============================================================
+   One-page PDF report
+   The whole report is drawn onto a single A4 canvas and wrapped
+   into a self-contained one-page PDF (a JPEG inside a minimal
+   PDF) — no libraries, no print dialog, so it can NEVER split
+   across sheets. Also used to keep the design rich and colourful.
+   ============================================================ */
+let LAST_REPORT = null;   // { rows, meta } captured by renderReport
+
+const RP = {
+  ink: "#1f2937", mut: "#64748b", line: "#dde3ec",
+  green: "#16a34a", greenBg: "#e7f6ec",
+  orange: "#d97706", orangeBg: "#fdeeda",
+  red: "#dc2626", redBg: "#fbe4e4",
+  grey: "#64748b", greyBg: "#eef1f6",
+  purple: "#7c3aed", gold: "#b8860b"
+};
+const clsColor = (cls) => cls === "best" ? RP.green : cls === "good" ? RP.orange : cls === "avoid" ? RP.red : RP.grey;
+const clsBg = (cls) => cls === "best" ? RP.greenBg : cls === "good" ? RP.orangeBg : cls === "avoid" ? RP.redBg : RP.greyBg;
+
+function rrp(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function fitText(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+  return t + "…";
+}
+function pill(ctx, x, y, text, { bg, fg, font = "700 15px Segoe UI, Arial", padX = 11, h = 26 }) {
+  ctx.font = font;
+  const w = ctx.measureText(text).width + padX * 2;
+  ctx.fillStyle = bg; rrp(ctx, x, y, w, h, h / 2); ctx.fill();
+  ctx.fillStyle = fg; ctx.textBaseline = "middle"; ctx.fillText(text, x + padX, y + h / 2 + 1);
+  return w;
+}
+function wrap(ctx, text, x, y, maxW, lh, font, color) {
+  ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = "alphabetic";
+  const words = String(text).split(/\s+/); let line = "";
+  for (const w of words) {
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, y); y += lh; line = w; }
+    else line = test;
+  }
+  if (line) { ctx.fillText(line, x, y); y += lh; }
+  return y;
+}
+function measureWrapH(ctx, text, maxW, lh, font) {
+  ctx.font = font;
+  const words = String(text).split(/\s+/); let line = "", lines = 0;
+  for (const w of words) {
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxW && line) { lines++; line = w; } else line = test;
+  }
+  if (line) lines++;
+  return lines * lh;
+}
+function donut(ctx, cx, cy, r, pct, color) {
+  ctx.lineWidth = 13; ctx.lineCap = "round";
+  ctx.strokeStyle = "#e7ebf2"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI); ctx.stroke();
+  const a0 = -Math.PI / 2, a1 = a0 + 2 * Math.PI * Math.max(0, Math.min(100, pct)) / 100;
+  ctx.strokeStyle = color; ctx.beginPath(); ctx.arc(cx, cy, r, a0, a1); ctx.stroke();
+  ctx.fillStyle = RP.ink; ctx.font = "800 30px Segoe UI, Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(pct + "%", cx, cy + 1); ctx.textAlign = "left";
+}
+
+/* draw the whole report into ctx at content width CW; returns final y */
+function paintReport(ctx, rows, meta, planImg) {
+  const CW = 1120;
+  const total = rows.length;
+  const problems = rows.filter((r) => r.isAvoid);
+  const kept = rows.filter((r) => !r.isAvoid);
+  const bestC = rows.filter((r) => r.v.cls === "best").length;
+  const secondC = rows.filter((r) => r.v.cls === "good").length;
+  const acceptC = rows.filter((r) => r.v.cls === "neutral").length;
+  const pct = total ? Math.round((kept.length / total) * 100) : 0;
+  const band = problems.length === 0 ? "best" : problems.length <= 2 ? "good" : "avoid";
+  const bandCol = clsColor(band);
+  const headline = problems.length === 0 ? "No room in a forbidden zone"
+    : `${problems.length} room${problems.length > 1 ? "s" : ""} to relocate`;
+  const northLabel = NORTH_LABEL[meta.north] || meta.north;
+  const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
+  let y = 0;
+  ctx.textAlign = "left";
+
+  // ---- header band (gradient) ----
+  const hh = 108;
+  const g = ctx.createLinearGradient(0, 0, CW, hh);
+  g.addColorStop(0, "#6d28d9"); g.addColorStop(1, "#b8860b");
+  ctx.fillStyle = g; rrp(ctx, 0, 0, CW, hh, 16); ctx.fill();
+  ctx.fillStyle = "#ffffff"; ctx.textBaseline = "alphabetic";
+  ctx.font = "800 38px Segoe UI, Arial"; ctx.fillText("🕉  Vastu Analysis Report", 30, 52);
+  ctx.font = "400 18px Segoe UI, Arial"; ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.fillText(`AI (Gemini) reading  ·  North ${northLabel}  ·  ${date}`, 30, 84);
+  y = hh + 28;
+
+  // ---- hero: donut + headline + legend ----
+  donut(ctx, 68, y + 66, 60, pct, bandCol);
+  ctx.fillStyle = RP.ink; ctx.font = "800 27px Segoe UI, Arial"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(headline, 168, y + 46);
+  ctx.fillStyle = RP.mut; ctx.font = "400 18px Segoe UI, Arial";
+  ctx.fillText(`${kept.length} of ${total} rooms are fine to keep`, 168, y + 76);
+  const legY = y + 104;
+  ctx.fillStyle = RP.green; rrp(ctx, 168, legY - 11, 14, 14, 3); ctx.fill();
+  ctx.fillStyle = RP.mut; ctx.font = "400 15px Segoe UI, Arial";
+  ctx.fillText("Keep — best / 2nd / 3rd / acceptable zone", 190, legY);
+  ctx.fillStyle = RP.red; rrp(ctx, 168, legY + 11, 14, 14, 3); ctx.fill();
+  ctx.fillStyle = RP.mut; ctx.fillText("Relocate — currently in a forbidden zone", 190, legY + 22);
+  y += 150;
+
+  // ---- stat tiles ----
+  const tiles = [
+    { n: bestC, l: "🥇 Best", c: RP.green },
+    { n: secondC, l: "🥈 2nd / 3rd", c: RP.orange },
+    { n: acceptC, l: "⚪ Acceptable", c: RP.grey },
+    { n: problems.length, l: "⚠ Relocate", c: RP.red }
+  ];
+  const gap = 16, tw = (CW - gap * 3) / 4, th = 92;
+  tiles.forEach((t, i) => {
+    const x = i * (tw + gap);
+    ctx.fillStyle = "#fbfcfe"; rrp(ctx, x, y, tw, th, 12); ctx.fill();
+    ctx.strokeStyle = RP.line; ctx.lineWidth = 1; rrp(ctx, x, y, tw, th, 12); ctx.stroke();
+    ctx.fillStyle = t.c; rrp(ctx, x, y, tw, 5, 2); ctx.fill();
+    ctx.fillStyle = t.c; ctx.font = "800 34px Segoe UI, Arial"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillText(String(t.n), x + tw / 2, y + 52);
+    ctx.fillStyle = RP.mut; ctx.font = "600 15px Segoe UI, Arial"; ctx.fillText(t.l, x + tw / 2, y + 76);
+    ctx.textAlign = "left";
+  });
+  y += th + 30;
+
+  const heading = (txt, col) => { ctx.fillStyle = col || RP.gold; ctx.font = "800 21px Segoe UI, Arial"; ctx.textBaseline = "alphabetic"; ctx.fillText(txt, 0, y); y += 30; };
+
+  // ---- marked-up plan ----
+  if (planImg && planImg.naturalWidth) {
+    heading("Marked-up plan");
+    const capH = 400;
+    let dw = CW, dh = dw * planImg.naturalHeight / planImg.naturalWidth;
+    if (dh > capH) { dh = capH; dw = dh * planImg.naturalWidth / planImg.naturalHeight; }
+    const px = (CW - dw) / 2;
+    ctx.save(); rrp(ctx, px, y, dw, dh, 10); ctx.clip();
+    ctx.drawImage(planImg, px, y, dw, dh); ctx.restore();
+    ctx.strokeStyle = RP.line; ctx.lineWidth = 1; rrp(ctx, px, y, dw, dh, 10); ctx.stroke();
+    y += dh + 28;
+  }
+
+  // ---- room-by-room table ----
+  heading("Room-by-room summary");
+  const cols = [0, 350, 520, 690, 855];   // Room, Zone, Verdict, Ideal, Action
+  ctx.font = "700 14px Segoe UI, Arial"; ctx.fillStyle = RP.mut; ctx.textBaseline = "middle";
+  ["ROOM", "DETECTED", "VERDICT", "IDEAL", "ACTION"].forEach((h, i) => ctx.fillText(h, cols[i], y + 8));
+  y += 22; ctx.strokeStyle = RP.line; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CW, y); ctx.stroke();
+  const rh = 42;
+  rows.forEach((r) => {
+    if (r.isAvoid) { ctx.fillStyle = "#fdeeee"; rrp(ctx, -6, y + 3, CW + 12, rh - 4, 7); ctx.fill(); }
+    const midY = y + rh / 2;
+    ctx.textBaseline = "middle";
+    ctx.font = "600 18px Segoe UI, Arial"; ctx.fillStyle = RP.ink;
+    ctx.fillText(fitText(ctx, r.a.room.icon + "  " + r.a.room.name, cols[1] - cols[0] - 16), cols[0], midY);
+    ctx.font = "400 17px Segoe UI, Arial"; ctx.fillStyle = RP.ink;
+    ctx.fillText(fitText(ctx, DIRECTIONS[r.a.zone].label, cols[2] - cols[1] - 12), cols[1], midY);
+    pill(ctx, cols[2], y + rh / 2 - 13, verdictText(r.v), { bg: clsColor(r.v.cls), fg: "#fff", font: "800 13px Segoe UI, Arial", h: 24, padX: 9 });
+    ctx.font = "400 17px Segoe UI, Arial"; ctx.fillStyle = RP.ink;
+    ctx.fillText(fitText(ctx, dirLabel(r.ideal), cols[4] - cols[3] - 12), cols[3], midY);
+    ctx.font = "600 16px Segoe UI, Arial"; ctx.fillStyle = r.isAvoid ? RP.red : RP.green;
+    ctx.fillText(fitText(ctx, r.isAvoid ? "➜ Move to " + dirLabel(r.ideal) : "✓ Keep", CW - cols[4]), cols[4], midY);
+    y += rh; ctx.strokeStyle = "#eef1f6"; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CW, y); ctx.stroke();
+  });
+  y += 30;
+
+  // ---- must relocate ----
+  if (problems.length) {
+    heading("⚠  Must relocate", RP.red);
+    problems.forEach((r) => {
+      const sev = (r.dosha ? r.dosha.severity : "high");
+      const why = r.dosha ? r.dosha.why
+        : `${r.a.room.name} sits in the ${DIRECTIONS[r.a.zone].label} — a forbidden zone for it, clashing with that corner's ${DIRECTIONS[r.a.zone].element} energy.`;
+      const rem = (r.dosha ? r.dosha.remedies : [r.rect, ...r.a.room.tips.slice(0, 2)]).filter(Boolean).slice(0, 2);
+      const cardPad = 16, innerW = CW - cardPad * 2 - 6;
+      const whyH = measureWrapH(ctx, why, innerW, 21, "400 15px Segoe UI, Arial");
+      const remHs = rem.map((rx) => measureWrapH(ctx, rx, innerW - 26, 21, "400 15px Segoe UI, Arial"));
+      let rel = 16 + 32 + 34 + 12 + whyH + 4;    // pad + title + move-row + why
+      remHs.forEach((h) => { rel += 14 + h + 3; });
+      const cardH = rel + 12;
+      // card
+      ctx.fillStyle = "#fff"; rrp(ctx, 0, y, CW, cardH, 12); ctx.fill();
+      ctx.strokeStyle = RP.line; rrp(ctx, 0, y, CW, cardH, 12); ctx.stroke();
+      ctx.fillStyle = RP.red; rrp(ctx, 0, y, 6, cardH, 3); ctx.fill();
+      let cy = y + 16;
+      ctx.fillStyle = RP.ink; ctx.font = "800 19px Segoe UI, Arial"; ctx.textBaseline = "top";
+      ctx.fillText(r.a.room.icon + "  " + r.a.room.name, cardPad + 6, cy + 2);
+      pill(ctx, CW - 90, cy, sev === "high" ? "HIGH" : "MEDIUM", { bg: sev === "high" ? RP.red : RP.orange, fg: "#fff", font: "800 12px Segoe UI, Arial", h: 22, padX: 9 });
+      cy += 32;
+      let px2 = cardPad + 6;
+      px2 += pill(ctx, px2, cy, DIRECTIONS[r.a.zone].label, { bg: RP.redBg, fg: RP.red, font: "700 14px Segoe UI, Arial", h: 24 }) + 8;
+      ctx.fillStyle = RP.mut; ctx.font = "700 16px Segoe UI, Arial"; ctx.textBaseline = "middle"; ctx.fillText("➜", px2, cy + 12); px2 += 26;
+      pill(ctx, px2, cy, dirLabel(r.ideal) + " (best)", { bg: RP.greenBg, fg: RP.green, font: "700 14px Segoe UI, Arial", h: 24 });
+      cy += 34;
+      cy = wrap(ctx, why, cardPad + 6, cy + 12, innerW, 21, "400 15px Segoe UI, Arial", RP.mut) + 4;
+      rem.forEach((rx) => {
+        ctx.fillStyle = RP.green; ctx.font = "700 15px Segoe UI, Arial"; ctx.textBaseline = "alphabetic"; ctx.fillText("✓", cardPad + 6, cy + 14);
+        cy = wrap(ctx, rx, cardPad + 26, cy + 14, innerW - 26, 21, "400 15px Segoe UI, Arial", RP.ink) + 3;
+      });
+      y += cardH + 16;
+    });
+  } else {
+    ctx.fillStyle = RP.greenBg; rrp(ctx, 0, y, CW, 46, 10); ctx.fill();
+    ctx.fillStyle = RP.green; ctx.font = "700 17px Segoe UI, Arial"; ctx.textBaseline = "middle";
+    ctx.fillText("✓  Every room is in an acceptable zone — nothing needs to move.", 18, y + 24);
+    y += 60;
+  }
+
+  // ---- keep as-is chips ----
+  heading("✓  Keep as-is", RP.green);
+  let cx = 0;
+  ctx.textBaseline = "middle";
+  kept.forEach((r) => {
+    const label = r.a.room.icon + " " + r.a.room.name + " · " + DIRECTIONS[r.a.zone].label;
+    ctx.font = "600 14px Segoe UI, Arial";
+    const w = ctx.measureText(label).width + 24;
+    if (cx + w > CW) { cx = 0; y += 34; }
+    ctx.fillStyle = clsBg(r.v.cls); rrp(ctx, cx, y, w, 27, 13); ctx.fill();
+    ctx.strokeStyle = clsColor(r.v.cls); ctx.lineWidth = 1; rrp(ctx, cx, y, w, 27, 13); ctx.stroke();
+    ctx.fillStyle = RP.ink; ctx.fillText(label, cx + 12, y + 14);
+    cx += w + 8;
+  });
+  y += 44;
+
+  // ---- disclaimer ----
+  y = wrap(ctx, "AI detection is best-effort — verify the marked zones against the real drawing. Rooms already in their best, 2nd/3rd-best or an acceptable zone are kept as-is; only forbidden-zone placements are flagged. Guidance only — consult a qualified Vastu expert for construction decisions.",
+    0, y + 4, CW, 18, "400 13px Segoe UI, Arial", RP.mut);
+  return y;
+}
+
+function loadImg(src) {
+  return new Promise((res) => { if (!src) return res(null); const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+}
+
+/* build the single A4 page canvas (supersampled) */
+async function buildA4Canvas(rows, meta) {
+  const planImg = await loadImg(await buildAnnotatedPlan(rows, meta.north));
+  // measure pass
+  const scratch = document.createElement("canvas");
+  scratch.width = 1120; scratch.height = 6000;
+  const usedH = paintReport(scratch.getContext("2d"), rows, meta, planImg);
+
+  const SS = 2, LW = 1240, LH = 1754, mX = 60, mTop = 52, mBot = 40;
+  const usableW = LW - mX * 2, usableH = LH - mTop - mBot;
+  const scale = Math.min(1, usableW / 1120, usableH / usedH);
+  const canvas = document.createElement("canvas");
+  canvas.width = LW * SS; canvas.height = LH * SS;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(SS, SS);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, LW, LH);
+  ctx.save();
+  ctx.translate(mX + (usableW - 1120 * scale) / 2, mTop);
+  ctx.scale(scale, scale);
+  paintReport(ctx, rows, meta, planImg);
+  ctx.restore();
+  return canvas;
+}
+
+/* ---- wrap a JPEG into a minimal one-page PDF (A4) ---- */
+function dataUrlToU8(dataUrl) {
+  const b64 = dataUrl.split(",")[1]; const bin = atob(b64);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return u8;
+}
+function jpegToPdf(jpeg, imgW, imgH) {
+  const pageW = 595.28, pageH = 841.89;
+  const s = Math.min(pageW / imgW, pageH / imgH);
+  const dw = imgW * s, dh = imgH * s, dx = (pageW - dw) / 2, dy = (pageH - dh) / 2;
+  const content = `q ${dw.toFixed(2)} 0 0 ${dh.toFixed(2)} ${dx.toFixed(2)} ${dy.toFixed(2)} cm /Im0 Do Q\n`;
+  const enc = new TextEncoder();
+  const cU8 = enc.encode(content);
+  const parts = []; let len = 0; const off = [];
+  const push = (u8) => { parts.push(u8); len += u8.length; };
+  const str = (s) => push(enc.encode(s));
+  str("%PDF-1.4\n");
+  const obj = (n, dict, stream) => {
+    off[n] = len;
+    str(`${n} 0 obj\n${dict}\n`);
+    if (stream) { str("stream\n"); push(stream); str("\nendstream\n"); }
+    str("endobj\n");
+  };
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+  obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW.toFixed(2)} ${pageH.toFixed(2)}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`);
+  obj(4, `<< /Type /XObject /Subtype /Image /Width ${imgW} /Height ${imgH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>`, jpeg);
+  obj(5, `<< /Length ${cU8.length} >>`, cU8);
+  const xrefOff = len;
+  let xref = `xref\n0 6\n0000000000 65535 f \n`;
+  for (let n = 1; n <= 5; n++) xref += `${String(off[n]).padStart(10, "0")} 00000 n \n`;
+  str(xref);
+  str(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOff}\n%%EOF`);
+  const out = new Uint8Array(len); let p = 0;
+  for (const part of parts) { out.set(part, p); p += part.length; }
+  return out;
+}
+
+async function downloadReportPdf() {
+  if (!LAST_REPORT) return;
+  const btn = $("#dl-pdf"); const label = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Building PDF…"; }
+  try {
+    const canvas = await buildA4Canvas(LAST_REPORT.rows, LAST_REPORT.meta);
+    const jpegUrl = canvas.toDataURL("image/jpeg", 0.9);
+    const pdf = jpegToPdf(dataUrlToU8(jpegUrl), canvas.width, canvas.height);
+    const blob = new Blob([pdf], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "Vastu-Analysis-Report.pdf";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) {
+    setAnalyzerMsg("ai", "Couldn't build the PDF (" + (e.message || "error") + ").", "warn");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label || "⬇ Download PDF report"; }
+  }
+}

@@ -811,7 +811,7 @@ section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
 
 /* ---- print: keep the marked-up plan WHOLE on its own page ---- */
 @media print {
-  .rep-plan-h { break-before: page; page-break-before: always; break-after: avoid; page-break-after: avoid; }
+  .rep-plan-h { break-after: avoid; page-break-after: avoid; }
   .rep-plan { break-inside: avoid; page-break-inside: avoid; text-align: center; }
   .rep-plan img { max-height: 232mm; width: auto !important; max-width: 100% !important; margin: 0 auto; }
   .rep-stats .stat { background: #fff !important; }
@@ -825,3 +825,45 @@ section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
   .tbadge.avoid { background: #fbd9d9 !important; color: #7f1d1d !important; }
   .tbadge.neutral { background: #e5e7eb !important; color: #374151 !important; }
 }
+
+/* ============ Buttons (base was missing — made them big & obvious) ============ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  padding: 0.9rem 1.6rem;
+  border: none; border-radius: 12px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: #16182b; font-weight: 800; font-size: 1.05rem; line-height: 1;
+  cursor: pointer; box-shadow: 0 6px 18px rgba(142,108,245,0.28);
+  transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 9px 24px rgba(142,108,245,0.38); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: 0.55; cursor: default; transform: none; box-shadow: none; }
+.btn-lg { padding: 1.05rem 2rem; font-size: 1.15rem; border-radius: 14px; }
+.btn-block { width: 100%; }
+
+/* the primary Analyze button: large, full-width, unmissable */
+#ai-analyze {
+  width: 100%; margin-top: 0.4rem;
+  padding: 1.15rem 1.5rem; font-size: 1.2rem; border-radius: 14px;
+  background: linear-gradient(90deg, #f5b942, #8e6cf5);
+  box-shadow: 0 8px 22px rgba(142,108,245,0.35);
+}
+#ai-analyze::before { content: "🤖 "; }
+#ai-analyze.loading::before { content: ""; }
+
+/* report header + footer download actions */
+.rep-head { gap: 0.8rem 1rem; }
+.rep-head #dl-pdf { flex: 0 0 auto; }
+.rep-foot-actions { display: flex; justify-content: center; margin-top: 1.2rem; }
+.rep-foot-actions .btn { max-width: 420px; }
+
+/* a touch more colour on the on-screen hero */
+.rep-hero {
+  background: linear-gradient(120deg, rgba(142,108,245,0.14), rgba(245,185,66,0.12)) !important;
+  border: 1px solid var(--neutral);
+}
+
+/* keep the big buttons visible when printing via Ctrl+P too (they're hidden anyway
+   because the PDF is generated from canvas, but be safe) */
+@media print { #dl-pdf, #dl-pdf-2 { display: none !important; } }
