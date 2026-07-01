@@ -949,11 +949,15 @@ async function buildAnnotatedPlan(rows, north) {
   return canvas.toDataURL("image/jpeg", 0.92);
 }
 
+function verdictBadgeHtml(v) {
+  return `<span class="tbadge ${v.cls}">${verdictText(v)}</span>`;
+}
+
 function renderReport(assignments, meta) {
   const rows = assignments.map((a) => {
     const v = zoneVerdict(a.room, a.zone);
     const ideal = a.room.best;
-    const isAvoid = v.cls === "avoid";   // ONLY a forbidden zone needs relocation
+    const isAvoid = v.cls === "avoid";
     let rect = "";
     if (isAvoid) {
       const dosha = findDosha(a.room.id, a.zone);
@@ -965,11 +969,12 @@ function renderReport(assignments, meta) {
   const total = rows.length;
   const problems = rows.filter((r) => r.isAvoid);
   const kept = rows.filter((r) => !r.isAvoid);
+  const bestCount = rows.filter((r) => r.v.cls === "best").length;
+  const secondCount = rows.filter((r) => r.v.cls === "good").length;
+  const acceptCount = rows.filter((r) => r.v.cls === "neutral").length;
   const pct = total ? Math.round((kept.length / total) * 100) : 0;
   const band = problems.length === 0 ? "best" : problems.length <= 2 ? "good" : "avoid";
-  const headline = problems.length === 0
-    ? "No room in a forbidden zone"
-    : `${problems.length} room${problems.length > 1 ? "s" : ""} to relocate`;
+  const headline = problems.length === 0 ? "No room in a forbidden zone" : `${problems.length} room${problems.length > 1 ? "s" : ""} to relocate`;
   const ringColor = band === "best" ? "#16a34a" : band === "good" ? "#d97706" : "#ef4444";
 
   const fixCards = problems.length ? problems.map((r) => {
@@ -995,6 +1000,15 @@ function renderReport(assignments, meta) {
 
   const chip = (r) => `<span class="keep-chip ${r.v.cls}">${r.a.room.icon} ${r.a.room.name} · ${DIRECTIONS[r.a.zone].label} · ${verdictText(r.v)}</span>`;
   const keptHtml = kept.length ? `<div class="keep-wrap">${kept.map(chip).join("")}</div>` : `<p class="dim">—</p>`;
+
+  const tableRows = rows.map((r) => `
+    <tr class="${r.isAvoid ? "row-move" : ""}">
+      <td>${r.a.room.icon} ${r.a.room.name}</td>
+      <td>${DIRECTIONS[r.a.zone].label}</td>
+      <td>${verdictBadgeHtml(r.v)}</td>
+      <td>${dirLabel(r.ideal)}</td>
+      <td>${r.isAvoid ? "➜ Move to " + dirLabel(r.ideal) : "✓ Keep"}</td>
+    </tr>`).join("");
 
   const warnHtml = (meta.warnings && meta.warnings.length)
     ? `<div class="rep-warn"><b>Notes from detection:</b><ul>${meta.warnings.map((w) => `<li>${w}</li>`).join("")}</ul></div>` : "";
@@ -1024,10 +1038,25 @@ function renderReport(assignments, meta) {
       </div>
     </div>
 
-    <h4 class="rep-h">Marked-up plan</h4>
+    <div class="rep-stats">
+      <div class="stat best"><span class="n">${bestCount}</span><span class="l">🥇 Best</span></div>
+      <div class="stat good"><span class="n">${secondCount}</span><span class="l">🥈 2nd / 3rd</span></div>
+      <div class="stat neutral"><span class="n">${acceptCount}</span><span class="l">⚪ Acceptable</span></div>
+      <div class="stat avoid"><span class="n">${problems.length}</span><span class="l">⚠ Relocate</span></div>
+    </div>
+
+    <h4 class="rep-h rep-plan-h">Marked-up plan</h4>
     <div id="rep-plan" class="rep-plan"><div class="rep-plan-load">🖊️ Marking your plan…</div></div>
 
     ${aiNote}${warnHtml}
+
+    <h4 class="rep-h">Room-by-room summary</h4>
+    <div class="rep-table-wrap">
+      <table class="rep-table">
+        <thead><tr><th>Room</th><th>Detected zone</th><th>Verdict</th><th>Ideal (1·BEST)</th><th>Action</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
 
     <h4 class="rep-h">⚠ Must relocate <span class="dim">— only rooms in a forbidden zone</span></h4>
     <div class="fix-grid">${fixCards}</div>
@@ -1049,3 +1078,5 @@ function renderReport(assignments, meta) {
       : `<div class="rep-plan-load">No plan image available to mark — upload an image or PDF in the Analyze tab.</div>`;
   });
 }
+
+

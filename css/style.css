@@ -575,17 +575,17 @@ section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
 .rep-pos { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .rep-disclaimer { margin-top: 1.2rem; color: var(--text-dim); font-size: 0.76rem; line-height: 1.5; }
 
-/* ============ Print: isolate the report ============ */
+/* ============ Print: isolate the report (display:none so hidden
+   content takes NO space — avoids blank trailing pages) ============ */
 @media print {
   body { background: #fff; color: #000; }
-  body * { visibility: hidden; }
-  #report, #report * { visibility: visible; }
-  #report { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border: none; }
-  #report, .rep-score, .rep-problem, .rep-table th, .rep-table td { color: #000 !important; }
-  #print-report { display: none; }
-  .rep-badge.best { background: #d6f5df !important; }
-  .rep-badge.good { background: #fdeccf !important; }
-  .rep-badge.avoid { background: #fbd9d9 !important; }
+  .container > header, .container > nav, .container > footer,
+  .container > section:not(#analyze) { display: none !important; }
+  #analyze > *:not(#report) { display: none !important; }
+  #analyze { margin: 0 !important; }
+  #report { position: static !important; width: 100%; box-shadow: none; border: none; padding: 0 !important; }
+  #report, .rep-table th, .rep-table td { color: #000 !important; }
+  #print-report { display: none !important; }
 }
 
 /* 8-direction North picker laid out as a compass rose (empty centre) */
@@ -750,10 +750,12 @@ section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
 @media print {
   @page { margin: 13mm; }
   html, body { background: #fff !important; }
-  body * { visibility: hidden !important; }
-  #report, #report * { visibility: visible !important; }
+  .container > header, .container > nav, .container > footer,
+  .container > section:not(#analyze) { display: none !important; }
+  #analyze > *:not(#report) { display: none !important; }
+  #analyze { margin: 0 !important; }
   #report {
-    position: absolute; left: 0; top: 0; width: 100%;
+    position: static !important; width: 100%;
     background: #fff !important; color: #111 !important; border: none !important; box-shadow: none !important; padding: 0 !important;
   }
   #print-report { display: none !important; }
@@ -783,3 +785,43 @@ section h2 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--text); }
 .crop-h.bl { left: -10px; bottom: -10px; cursor: nesw-resize; }
 .crop-h.br { right: -10px; bottom: -10px; cursor: nwse-resize; }
 .crop-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+
+/* ---- report: stats strip + summary table + verdict badges ---- */
+.rep-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin: 0.2rem 0 1rem; }
+.rep-stats .stat {
+  background: var(--bg-card-2); border: 1px solid var(--neutral); border-top: 3px solid var(--neutral);
+  border-radius: 12px; padding: 0.7rem 0.5rem; text-align: center;
+}
+.rep-stats .stat .n { display: block; font-size: 1.7rem; font-weight: 800; line-height: 1; }
+.rep-stats .stat .l { font-size: 0.74rem; color: var(--text-dim); }
+.rep-stats .stat.best  { border-top-color: var(--green); } .rep-stats .stat.best .n  { color: var(--green); }
+.rep-stats .stat.good  { border-top-color: var(--orange); } .rep-stats .stat.good .n  { color: var(--orange); }
+.rep-stats .stat.neutral { border-top-color: var(--text-dim); } .rep-stats .stat.neutral .n { color: var(--text-dim); }
+.rep-stats .stat.avoid { border-top-color: var(--red); } .rep-stats .stat.avoid .n { color: var(--red); }
+@media (max-width: 560px) { .rep-stats { grid-template-columns: repeat(2, 1fr); } }
+
+.rep-table thead th { background: var(--bg-card-2); }
+.rep-table tbody tr.row-move { background: rgba(239, 68, 68, 0.08); }
+.rep-table tbody tr:hover { background: rgba(245, 185, 66, 0.06); }
+.tbadge { font-size: 0.68rem; font-weight: 800; padding: 0.12rem 0.5rem; border-radius: 999px; white-space: nowrap; }
+.tbadge.best  { background: var(--green);  color: #16182b; }
+.tbadge.good  { background: var(--orange); color: #16182b; }
+.tbadge.avoid { background: var(--red);    color: #fff; }
+.tbadge.neutral { background: var(--neutral); color: var(--text); }
+
+/* ---- print: keep the marked-up plan WHOLE on its own page ---- */
+@media print {
+  .rep-plan-h { break-before: page; page-break-before: always; break-after: avoid; page-break-after: avoid; }
+  .rep-plan { break-inside: avoid; page-break-inside: avoid; text-align: center; }
+  .rep-plan img { max-height: 232mm; width: auto !important; max-width: 100% !important; margin: 0 auto; }
+  .rep-stats .stat { background: #fff !important; }
+  .rep-stats .stat .l, .rep-table th { color: #475569 !important; }
+  .rep-table, .rep-table th, .rep-table td { color: #111 !important; border-color: #cbd5e1 !important; }
+  .rep-table thead th { background: #f1f5f9 !important; }
+  .rep-table tbody tr.row-move { background: #fdecec !important; }
+  .rep-table, .rep-stats { break-inside: avoid; }
+  .tbadge.best { background: #d6f5df !important; color: #14532d !important; }
+  .tbadge.good { background: #fdeccf !important; color: #7c4a03 !important; }
+  .tbadge.avoid { background: #fbd9d9 !important; color: #7f1d1d !important; }
+  .tbadge.neutral { background: #e5e7eb !important; color: #374151 !important; }
+}
